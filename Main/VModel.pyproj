@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{a8dacf37-14a5-4a9f-94fc-a68f29a578a5}</ProjectGuid>
+    <ProjectHome />
+    <StartupFile>export_vmodel.py</StartupFile>
+    <SearchPath>..\..\..\..\..\..\..\..\..\..\Program Files\Blender Foundation\Blender\2.73\scripts\;..\..\..\..\..\..\..\..\..\..\Program Files\Blender Foundation\Blender\2.73\scripts\modules\;..\..\..\..\..\..\..\..\..\..\Program Files\Blender Foundation\Blender\2.73\scripts\modules\bpy\;..\..\..\..\..\..\..\..\..\..\Program Files\Blender Foundation\Blender\2.73\scripts\modules\bl_i18n_utils\;..\..\..\..\..\..\..\..\..\..\Program Files\Blender Foundation\Blender\2.73\scripts\modules\bpy_extras\;..\..\..\..\..\..\..\..\..\..\Program Files\Blender Foundation\Blender\2.73\scripts\modules\console\</SearchPath>
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <InterpreterId />
+    <InterpreterVersion />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
+  <PropertyGroup>
+    <VisualStudioVersion Condition=" '$(VisualStudioVersion)' == '' ">10.0</VisualStudioVersion>
+    <PtvsTargetsFile>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets</PtvsTargetsFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="export_vmodel.py" />
+    <Compile Include="v.py" />
+    <Compile Include="__init__.py" />
+  </ItemGroup>
+  <Import Project="$(PtvsTargetsFile)" Condition="Exists($(PtvsTargetsFile))" />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" Condition="!Exists($(PtvsTargetsFile))" />
+</Project>
