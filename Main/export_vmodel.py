@@ -304,14 +304,8 @@ def GetVertexesStr(obj, mesh, vertices, options):
 	return result
 
 def GetBoneWeightsStr(obj, mesh, vertex):
-	armature_object = obj.find_armature()
-	bone_names = [bone.name for bone in armature_object.pose.bones]
-
-	obj_orig = nothing
-	for obj2 in bpy.data.objects: # find the original object
-		if obj2.name == mesh.name or obj2 == obj:
-			obj_orig = obj2
-			break
+	armatureObj = obj.find_armature()
+	bone_names = [bone.name for bone in armatureObj.pose.bones]
 
 	result = "{"
 	for group in vertex.groups: # a 'group' is basically a bone-weight assignment
@@ -371,82 +365,80 @@ def GetFacesStr(obj, mesh):
 def ConvertArmatureToVDF(obj, armature, options):
 	result = "{^}"
 
-	bones_string, nbone = generate_bones(obj, armature, options)
-	result += "\nbones:" + bones_string
+	bones_string = "{^}"
+	for pose_bone in obj.pose.bones: #armature.bones
+		bone = pose_bone.bone
+		if obj.data.edit_bones[bone.name].parent == nothing:
+			bones_string += "\n" + v.indent_lines(ConvertBoneToVDF(obj, armature, bone, options))
+	result += "\n" + v.indent_lines("bones:" + bones_string)
 
-	result = v.indent_lines(result, 1, false)
 	return result
 
-def generate_bones(armature_object, armature, options):
-	if not options.option_bones:
-		return "", 0
-	if armature_object is nothing:
-		return "", 0
-
+def ConvertBoneToVDF(obj, armature, bone, options):
 	hierarchy = []
-	armature_matrix = armature_object.matrix_world
-	pose_bones = armature_object.pose.bones
-	#pose_bones = armature.bones
+	armature_matrix = obj.matrix_world
+	pose_bones = obj.pose.bones #armature.bones
 
-	for pose_bone in pose_bones:
-		armature_bone = pose_bone.bone
-		#armature_bone = pose_bone
-		bonePos = armature_matrix * armature_bone.head_local
-		boneIndex = nothing
+	#bone = pose_bone.bone #pose_bone
+	bonePos = armature_matrix * bone.head_local
+	boneIndex = nothing
 
-		if armature_bone.parent is nothing:
-			bone_matrix = armature_matrix * armature_bone.matrix_local
-			bone_index = -1
-		else:
-			parent_matrix = armature_matrix * armature_bone.parent.matrix_local
-			bone_matrix = armature_matrix * armature_bone.matrix_local
-			bone_matrix = parent_matrix.inverted() * bone_matrix
+	if bone.parent is nothing:
+		bone_matrix = armature_matrix * bone.matrix_local
+		bone_index = -1
+	else:
+		parent_matrix = armature_matrix * bone.parent.matrix_local
+		bone_matrix = armature_matrix * bone.matrix_local
+		bone_matrix = parent_matrix.inverted() * bone_matrix
 
-			bone_index = i = 0
-			for pose_parent in pose_bones:
-				armature_parent = pose_parent.bone
-				#armature_parent = pose_parent
-				if armature_parent.name == armature_bone.parent.name:
-					bone_index = i
-				i += 1
+		bone_index = i = 0
+		for pose_parent in pose_bones:
+			armature_parent = pose_parent.bone
+			#armature_parent = pose_parent
+			if armature_parent.name == bone.parent.name:
+				bone_index = i
+			i += 1
 
-		pos, rotQ, scl = bone_matrix.decompose()
-		rotQ = v.Quaternion_toDegrees(rotQ)
-		rotationEuler = v.Vector_toDegrees(rotQ.to_euler("XYZ"))
+	pos, rotQ, scl = bone_matrix.decompose()
+	rotQ = v.Quaternion_toDegrees(rotQ)
+	rotationEuler = v.Vector_toDegrees(rotQ.to_euler("XYZ"))
 
-		parentNameStr = ("\"" + armature_bone.parent.name + "\"") if armature_bone.parent != nothing else "null"
-		positionStr = ""
-		rotationStr = ""
-		scaleStr = ""
-		if options.option_flip_yz:
-			positionStr = "[" + s(pos.x) + " " + s(pos.z) + " " + s(-pos.y) + "]"
-			rotationStr = ("[" + s(rotationEuler.x) + " " + s(rotationEuler.z) + " " + s(-rotationEuler.y) + "]") if options.rotationDataType == "Euler Angle" else ("[" + s(rotQ.x) + " " + s(rotQ.z) + " " + s(-rotQ.y) + " " + s(rotQ.w) + "]")
-			scaleStr = "[" + s(scl.x) + " " + s(scl.z) + " " + s(scl.y) + "]"
-		else:
-			positionStr = "[" + s(pos.x) + " " + s(pos.y) + " " + s(pos.z) + "]"
-			rotationStr = ("[" + s(rotationEuler.x) + " " + s(rotationEuler.y) + " " + s(rotationEuler.z) + "]") if options.rotationDataType == "Euler Angle" else ("[" + s(rotQ.x) + " " + s(rotQ.y) + " " + s(rotQ.z) + " " + s(rotQ.w) + "]")
-			scaleStr = "[" + s(scl.x) + " " + s(scl.y) + " " + s(scl.z) + "]"
+	#parentNameStr = ("\"" + obj.data.edit_bones[bone.name].parent.name + "\"") if obj.data.edit_bones[bone.name].parent != nothing else "null"
+	positionStr = ""
+	rotationStr = ""
+	scaleStr = ""
+	if options.option_flip_yz:
+		positionStr = "[" + s(pos.x) + " " + s(pos.z) + " " + s(-pos.y) + "]"
+		rotationStr = ("[" + s(rotationEuler.x) + " " + s(rotationEuler.z) + " " + s(-rotationEuler.y) + "]") if options.rotationDataType == "Euler Angle" else ("[" + s(rotQ.x) + " " + s(rotQ.z) + " " + s(-rotQ.y) + " " + s(rotQ.w) + "]")
+		scaleStr = "[" + s(scl.x) + " " + s(scl.z) + " " + s(scl.y) + "]"
+	else:
+		positionStr = "[" + s(pos.x) + " " + s(pos.y) + " " + s(pos.z) + "]"
+		rotationStr = ("[" + s(rotationEuler.x) + " " + s(rotationEuler.y) + " " + s(rotationEuler.z) + "]") if options.rotationDataType == "Euler Angle" else ("[" + s(rotQ.x) + " " + s(rotQ.y) + " " + s(rotQ.z) + " " + s(rotQ.w) + "]")
+		scaleStr = "[" + s(scl.x) + " " + s(scl.y) + " " + s(scl.z) + "]"
 
-		hierarchy.append(armature_bone.name + ":{parent:" + parentNameStr + " position:" + positionStr + " rotation:" + rotationStr + " scale:" + scaleStr + "}")
+	childrenStr = ""
+	if len(obj.data.edit_bones[bone.name].children) > 0:
+		for childEditBone in obj.data.edit_bones[bone.name].children:
+			childrenStr += "\n" + v.indent_lines(ConvertBoneToVDF(obj, armature, next(a for a in armature.bones if a.name == childEditBone.name), options))
 
-	bones_string = "{^}\n" + v.indent_lines(" ".join(hierarchy), 1)
-	
-	return bones_string, len(pose_bones)
+	result = bone.name + ":{position:" + positionStr + " rotation:" + rotationStr + " scale:" + scaleStr + (" children:[^]" if len(childrenStr) > 0 else "") + "}" + childrenStr
+
+	return result
 
 # skeletal animation
 # ==========
 
-def ConvertActionsToVDF(armature_object, armature, actions, options):
+def ConvertActionsToVDF(obj, armature, actions, options):
 	result = "{^}"
 	for action in actions:
-		result += "\n" + action.name + ":" + ConvertActionToVDF(armature_object, armature, action, options)
+		result += "\n" + action.name + ":" + ConvertActionToVDF(obj, armature, action, options)
 	result = v.indent_lines(result, 1, false)
 	return result
 
-def ConvertActionToVDF(armature_object, armature, action, options):
+def ConvertActionToVDF(obj, armature, action, options):
 	if not options.option_animation_skeletal or len(bpy.data.actions) == 0:
 		return ""
-	if armature_object is None or armature is None:
+	if obj is None or armature is None:
 		return "", 0
 
 	# todo: add scaling influences
@@ -457,11 +449,11 @@ def ConvertActionToVDF(armature_object, armature, action, options):
 	bpy.context.space_data.mode = "ACTION"	
 	
 	oldActiveObject = bpy.context.scene.objects.active
-	bpy.context.scene.objects.active = armature_object # set active object (needed to set active action)
+	bpy.context.scene.objects.active = obj # set active object (needed to set active action)
 	#oldActiveAction = bpy.context.area.spaces.active.action #if "action" in bpy.context.area.spaces.active else nothing
 	bpy.context.area.spaces.active.action = action # set active action
 	
-	armature_matrix = armature_object.matrix_world
+	armature_matrix = obj.matrix_world
 
 	fps = bpy.data.scenes[0].render.fps
 
@@ -478,13 +470,13 @@ def ConvertActionToVDF(armature_object, armature, action, options):
 	channels_scale = []
 	
 	# precompute per-bone data
-	for pose_bone in armature_object.pose.bones:
-		armature_bone = pose_bone.bone
+	for pose_bone in obj.pose.bones:
+		bone = pose_bone.bone
 		keys.append([])
-		channels_location.append(find_channels(action, armature_bone, "location"))
-		channels_rotation.append(find_channels(action, armature_bone, "rotation_quaternion"))
-		channels_rotation.append(find_channels(action, armature_bone, "rotation_euler"))
-		channels_scale.append(find_channels(action, armature_bone, "scale"))
+		channels_location.append(find_channels(action, bone, "location"))
+		channels_rotation.append(find_channels(action, bone, "rotation_quaternion"))
+		channels_rotation.append(find_channels(action, bone, "rotation_euler"))
+		channels_scale.append(find_channels(action, bone, "scale"))
 
 	# process all frames
 	for frame_i in range(0, used_frames):
@@ -505,7 +497,7 @@ def ConvertActionToVDF(armature_object, armature, action, options):
 
 		# process all bones for the current frame
 		bone_index = 0
-		for pose_bone in armature_object.pose.bones:
+		for pose_bone in obj.pose.bones:
 			# extract the bone transformations
 			if pose_bone.parent is None:
 				bone_matrix = armature_matrix * pose_bone.matrix
@@ -566,7 +558,7 @@ def ConvertActionToVDF(armature_object, armature, action, options):
 	# gather data
 	parents = []
 	bone_index = 0
-	for pose_bone in armature_object.pose.bones:
+	for pose_bone in obj.pose.bones:
 		keys_string = "\n\t".join(keys[bone_index])
 		parent = pose_bone.name + ':{^}\n\t%s' % (keys_string)
 		bone_index += 1
