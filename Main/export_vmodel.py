@@ -414,7 +414,7 @@ def generate_bones(armature_object, armature, options):
 		rotQ = v.Quaternion_toDegrees(rotQ)
 		rotationEuler = v.Vector_toDegrees(rotQ.to_euler("XYZ"))
 
-		parentName = armature_bone.parent.name if armature_bone.parent != nothing else "null"
+		parentNameStr = ("\"" + armature_bone.parent.name + "\"") if armature_bone.parent != nothing else "null"
 		positionStr = ""
 		rotationStr = ""
 		scaleStr = ""
@@ -427,7 +427,7 @@ def generate_bones(armature_object, armature, options):
 			rotationStr = ("[" + s(rotationEuler.x) + " " + s(rotationEuler.y) + " " + s(rotationEuler.z) + "]") if options.rotationDataType == "Euler Angle" else ("[" + s(rotQ.x) + " " + s(rotQ.y) + " " + s(rotQ.z) + " " + s(rotQ.w) + "]")
 			scaleStr = "[" + s(scl.x) + " " + s(scl.y) + " " + s(scl.z) + "]"
 
-		hierarchy.append(armature_bone.name + ":{parent:" + parentName + " position:" + positionStr + " rotation:" + rotationStr + " scale:" + scaleStr + "}")
+		hierarchy.append(armature_bone.name + ":{parent:" + parentNameStr + " position:" + positionStr + " rotation:" + rotationStr + " scale:" + scaleStr + "}")
 
 	bones_string = "{^}\n" + v.indent_lines(" ".join(hierarchy), 1)
 	
