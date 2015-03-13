@@ -86,18 +86,6 @@ class OBJECT_PT_hello(bpy.types.Panel):
 		row = layout.row()
 		row.prop(obj, "VModel_export", text="Export object")
 
-		row = layout.row()
-		row.prop(obj, "VModel_castShadow", text="Casts shadow")
-
-		row = layout.row()
-		row.prop(obj, "VModel_receiveShadow", text="Receives shadow")
-
-		row = layout.row()
-		row.prop(obj, "VModel_doubleSided", text="Double sided")
-		
-		row = layout.row()
-		row.prop(obj, "VModel_visible", text="Visible")
-
 class MATERIAL_PT_hello(bpy.types.Panel):
 
 	bl_label = "VModel"

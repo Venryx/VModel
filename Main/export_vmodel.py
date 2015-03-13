@@ -365,12 +365,22 @@ def GetFacesStr(obj, mesh):
 def ConvertArmatureToVDF(obj, armature, options):
 	result = "{^}"
 
+	# select armature, and change to edit mode
+	oldActiveObject = bpy.context.scene.objects.active
+	bpy.context.scene.objects.active = obj
+	oldMode = bpy.context.object.mode
+	bpy.ops.object.mode_set(mode = "EDIT")
+
 	bones_string = "{^}"
 	for pose_bone in obj.pose.bones: #armature.bones
 		bone = pose_bone.bone
 		if obj.data.edit_bones[bone.name].parent == nothing:
 			bones_string += "\n" + v.indent_lines(ConvertBoneToVDF(obj, armature, bone, options))
 	result += "\n" + v.indent_lines("bones:" + bones_string)
+
+	# revert
+	bpy.ops.object.mode_set(mode = oldMode)
+	bpy.context.scene.objects.active = oldActiveObject
 
 	return result
 
@@ -430,9 +440,13 @@ def ConvertBoneToVDF(obj, armature, bone, options):
 
 def ConvertActionsToVDF(obj, armature, actions, options):
 	result = "{^}"
+
+	# todo: change to pose mode (or something like that)
 	for action in actions:
 		result += "\n" + action.name + ":" + ConvertActionToVDF(obj, armature, action, options)
 	result = v.indent_lines(result, 1, false)
+	# todo: revert mode
+
 	return result
 
 def ConvertActionToVDF(obj, armature, action, options):
@@ -443,16 +457,18 @@ def ConvertActionToVDF(obj, armature, action, options):
 
 	# todo: add scaling influences
 
-	# get current context and then switch to dopesheet temporarily
-	current_context = bpy.context.area.type
-	bpy.context.area.type = "DOPESHEET_EDITOR"
-	bpy.context.space_data.mode = "ACTION"	
-	
+	# select object, change to pose mode, select action, change to dopesheet editor area type, and change to action mode
 	oldActiveObject = bpy.context.scene.objects.active
-	bpy.context.scene.objects.active = obj # set active object (needed to set active action)
-	#oldActiveAction = bpy.context.area.spaces.active.action #if "action" in bpy.context.area.spaces.active else nothing
-	bpy.context.area.spaces.active.action = action # set active action
-	
+	bpy.context.scene.objects.active = obj
+	oldMode = bpy.context.object.mode
+	bpy.ops.object.mode_set(mode = "POSE")
+	oldContext = bpy.context.area.type
+	bpy.context.area.type = "DOPESHEET_EDITOR"
+	oldSpaceDataMode = bpy.context.space_data.mode
+	bpy.context.space_data.mode = "ACTION"
+	oldActiveAction = bpy.context.area.spaces.active.action #if "action" in bpy.context.area.spaces.active else nothing
+	bpy.context.area.spaces.active.action = action
+
 	armature_matrix = obj.matrix_world
 
 	fps = bpy.data.scenes[0].render.fps
@@ -579,10 +595,11 @@ def ConvertActionToVDF(obj, armature, action, options):
 
 	bpy.data.scenes[0].frame_set(start_frame)
 
-	# reset context
-	bpy.context.area.type = current_context
-	# reset context, additional
-	#bpy.context.area.spaces.active.action = oldActiveAction
+	# revert
+	bpy.context.area.spaces.active.action = oldActiveAction
+	bpy.context.space_data.mode = oldSpaceDataMode
+	bpy.context.area.type = oldContext
+	bpy.ops.object.mode_set(mode = oldMode)
 	bpy.context.scene.objects.active = oldActiveObject
 	
 	return animation_string
