@@ -261,7 +261,7 @@ def GetVertexesStr(obj, mesh, vertices, options):
 	for i, vertex in enumerate(vertices):
 		result += "\n{"
 		result += "position:[" + generate_vertex(vertex) + "]"
-		result += " normal:[" + s(vertex.normal[0]) + " " + s(vertex.normal[1]) + "]"
+		result += " normal:[" + s(vertex.normal[0]) + " " + s(vertex.normal[1]) + " " + s(vertex.normal[2]) + "]"
 
 		uvsStr = ""
 		nuvs = []
