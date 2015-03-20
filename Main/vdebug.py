@@ -54,19 +54,32 @@ def Section(name = nothing, mark = false):
 		StartSection()
 '''
 
+sectionStartTimes_unnamed = []
 sectionStartTimes = {}
+sectionAddCounts = {}
 sectionTotals = {}
-def StartSection(name): # todo: get this to work without need of supplied name, by matching start-section calls with end-section calls based on call-depth
-	sectionStartTimes[name] = time.clock()
+def StartSection(name = nothing):
+	if name is nothing:
+		sectionStartTimes_unnamed.append(time.clock())
+	else:
+		sectionStartTimes[name] = time.clock()
 def EndSection(name, mark = false):
-	if name not in sectionTotals:
+	if name not in sectionAddCounts:
+		sectionAddCounts[name] = 0
 		sectionTotals[name] = 0
+
+	if name not in sectionStartTimes:
+		sectionStartTimes[name] = sectionStartTimes_unnamed.pop()
+
+	sectionAddCounts[name] += 1
 	sectionTotals[name] += time.clock() - sectionStartTimes[name]
+	sectionStartTimes.pop(name)
+
 	if mark:
 		MarkSection(name)
 
 def MarkSection(name):
-	Log("Section_" + name + ") " + s(sectionTotals[name]))
+	Log("Section_" + name + ") " + s(sectionTotals[name]) + ", " + s(sectionAddCounts[name]) + " adds")
 def MarkSections():
-	for name in sectionTotals: # maybe todo: add sorting
+	for name in sectionAddCounts: # maybe todo: add sorting
 		MarkSection(name)

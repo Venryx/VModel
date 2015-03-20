@@ -133,19 +133,19 @@ def ConvertObjectToVDF(obj, data, options):
 
 	if obj.type == "MESH":
 		vdebug.StartSection("Mesh")
-		object_string += "\nmesh:" + generate_mesh_string(obj, data["scene"], options)
+		object_string += "\nmesh:" + GetMeshStr(obj, data["scene"], options)
 		vdebug.EndSection("Mesh")
 	elif obj.type == "ARMATURE":
 		vdebug.StartSection("Armature")
-		object_string += "\narmature:" + ConvertArmatureToVDF(obj, obj.data, options)
+		object_string += "\narmature:" + GetArmatureStr(obj, obj.data, options)
 		vdebug.EndSection("Armature")
 
 		vdebug.StartSection("Animations")
 		actions = []
 		for action in bpy.data.actions:
-			if action.groups[0].name in obj.data.bones:
+			if action.groups[0].name == obj.data.name or action.groups[0].name in obj.data.bones: # action == obj.animation_data.action # todo: make sure this is correct
 				actions.append(action)
-		object_string += "\nanimations:" + ConvertActionsToVDF(obj, obj.data, actions, options)
+		object_string += "\nanimations:" + GetAnimationsStr(obj, obj.data, actions, options)
 		vdebug.EndSection("Animations")
 	children_string = "{^}"
 	for child in obj.children:
@@ -188,7 +188,7 @@ def extract_mesh(obj, scene, options):
 
 	return nothing
 
-def generate_mesh_string(obj, scene, options):
+def GetMeshStr(obj, scene, options):
 	mesh = extract_mesh(obj, scene, options)
 
 	'''
@@ -276,23 +276,23 @@ def GetVertexesStr(obj, mesh, vertices, options):
 	if not options.option_vertices:
 		return ""
 
-	vertexInfoByVertexThenFaceThenLayer = {}
+	vertexInfoByVertexThenLayerThenFace = {}
 	for faceIndex, face in enumerate(v.get_faces(mesh)):
 		for layerIndex, layer in enumerate(mesh.tessface_uv_textures): # for now, we assume there's only one
 			for faceVertexIndex, vertexIndex in enumerate(face.vertices):
-				if vertexIndex not in vertexInfoByVertexThenFaceThenLayer:
-					vertexInfoByVertexThenFaceThenLayer[vertexIndex] = {}
-				vertexInfo = vertexInfoByVertexThenFaceThenLayer[vertexIndex]
+				if vertexIndex not in vertexInfoByVertexThenLayerThenFace:
+					vertexInfoByVertexThenLayerThenFace[vertexIndex] = {}
+				vertexInfo = vertexInfoByVertexThenLayerThenFace[vertexIndex]
 
-				if faceIndex not in vertexInfo:
-					vertexInfo[faceIndex] = {}
-				faceInfo = vertexInfo[faceIndex]
+				if layerIndex not in vertexInfo:
+					vertexInfo[layerIndex] = {}
+				layerInfo = vertexInfo[layerIndex]
 
-				if layerIndex not in faceInfo:
-					faceInfo[layerIndex] = {}
-				layerInfo = faceInfo[layerIndex]
+				if faceIndex not in layerInfo:
+					layerInfo[faceIndex] = {}
+				faceInfo = layerInfo[faceIndex]
 
-				layerInfo["uvPoint"] = layer.data[faceIndex].uv[faceVertexIndex]
+				faceInfo["uvPoint"] = layer.data[faceIndex].uv[faceVertexIndex]
 
 	result = "[^]"
 	for vertexIndex, vertex in enumerate(vertices):
@@ -301,8 +301,6 @@ def GetVertexesStr(obj, mesh, vertices, options):
 		result += " normal:[" + s(vertex.normal[0]) + " " + s(vertex.normal[1]) + " " + s(vertex.normal[2]) + "]"
 
 		uvsStr = ""
-		nuvs = []
-		uv_layers = []
 		if options.option_uv_coords and len(mesh.uv_textures) > 0 and (not mesh.uv_textures.active == nothing):
 			''' # this approach took 12.79 seconds
 			for faceIndex, face in enumerate(v.get_faces(mesh)):
@@ -314,10 +312,18 @@ def GetVertexesStr(obj, mesh, vertices, options):
 			'''
 
 			# this approach took .69 seconds
-			vertexInfo = vertexInfoByVertexThenFaceThenLayer[vertexIndex]
-			for faceIndex, faceInfo in sorted(vertexInfo.items()):
-				for layerIndex, layerInfo in sorted(faceInfo.items()):
-					result += " uv" + (s(layerIndex) if layerIndex > 0 else "") + "_face" + s(faceIndex) + ":[" + s(layerInfo["uvPoint"][0]) + " " + s(layerInfo["uvPoint"][1]) + "]"
+			vertexInfo = vertexInfoByVertexThenLayerThenFace[vertexIndex]
+			for layerIndex, layerInfo in sorted(vertexInfo.items()):
+				layerFaceUVValues = []
+				for faceIndex, faceInfo in sorted(layerInfo.items()):
+					if not v.any(layerFaceUVValues, lambda a:a["uvPoint"][0] == faceInfo["uvPoint"][0] and a["uvPoint"][1] == faceInfo["uvPoint"][1]):
+						layerFaceUVValues.append(faceInfo)
+				if len(layerFaceUVValues) == 1:
+					uvsStr += " uv" + (s(layerIndex + 1) if layerIndex > 0 else "") + ":[" + s(faceInfo["uvPoint"][0]) + " " + s(faceInfo["uvPoint"][1]) + "]"
+				else:
+					for faceIndex, faceInfo in sorted(layerInfo.items()):
+						uvsStr += " uv" + (s(layerIndex + 1) if layerIndex > 0 else "") + "_face" + s(faceIndex) + ":[" + s(faceInfo["uvPoint"][0]) + " " + s(faceInfo["uvPoint"][1]) + "]"
+		result += uvsStr
 
 		result += " boneWeights:" + GetBoneWeightsStr(obj, mesh, vertex) + "}"
 
@@ -383,7 +389,7 @@ def GetFacesStr(obj, mesh):
 # armature
 # ==========
 
-def ConvertArmatureToVDF(obj, armature, options):
+def GetArmatureStr(obj, armature, options):
 	result = "{^}"
 
 	# select armature, and change to edit mode
@@ -393,10 +399,10 @@ def ConvertArmatureToVDF(obj, armature, options):
 	bpy.ops.object.mode_set(mode = "EDIT")
 
 	bones_string = "{^}"
-	for pose_bone in obj.pose.bones: #armature.bones
-		bone = pose_bone.bone
+	for poseBone in obj.pose.bones: #armature.bones
+		bone = poseBone.bone
 		if obj.data.edit_bones[bone.name].parent == nothing:
-			bones_string += "\n" + v.indent_lines(ConvertBoneToVDF(obj, armature, bone, options))
+			bones_string += "\n" + v.indent_lines(GetBoneStr(obj, armature, bone, options))
 	result += "\n" + v.indent_lines("bones:" + bones_string)
 
 	# revert
@@ -405,30 +411,17 @@ def ConvertArmatureToVDF(obj, armature, options):
 
 	return result
 
-def ConvertBoneToVDF(obj, armature, bone, options):
+def GetBoneStr(obj, armature, bone, options):
 	hierarchy = []
 	armature_matrix = obj.matrix_world
-	pose_bones = obj.pose.bones #armature.bones
-
-	#bone = pose_bone.bone #pose_bone
-	bonePos = armature_matrix * bone.head_local
-	boneIndex = nothing
+	poseBones = obj.pose.bones #armature.bones
 
 	if bone.parent is nothing:
 		bone_matrix = armature_matrix * bone.matrix_local
-		bone_index = -1
 	else:
 		parent_matrix = armature_matrix * bone.parent.matrix_local
 		bone_matrix = armature_matrix * bone.matrix_local
 		bone_matrix = parent_matrix.inverted() * bone_matrix
-
-		bone_index = i = 0
-		for pose_parent in pose_bones:
-			armature_parent = pose_parent.bone
-			#armature_parent = pose_parent
-			if armature_parent.name == bone.parent.name:
-				bone_index = i
-			i += 1
 
 	pos, rotQ, scl = bone_matrix.decompose()
 	rotQ = v.Quaternion_toDegrees(rotQ)
@@ -450,7 +443,7 @@ def ConvertBoneToVDF(obj, armature, bone, options):
 	childrenStr = ""
 	if len(obj.data.edit_bones[bone.name].children) > 0:
 		for childEditBone in obj.data.edit_bones[bone.name].children:
-			childrenStr += "\n" + v.indent_lines(ConvertBoneToVDF(obj, armature, next(a for a in armature.bones if a.name == childEditBone.name), options))
+			childrenStr += "\n" + v.indent_lines(GetBoneStr(obj, armature, next(a for a in armature.bones if a.name == childEditBone.name), options))
 
 	result = bone.name + ":{position:" + positionStr + " rotation:" + rotationStr + " scale:" + scaleStr + (" children:[^]" if len(childrenStr) > 0 else "") + "}" + childrenStr
 
@@ -459,24 +452,26 @@ def ConvertBoneToVDF(obj, armature, bone, options):
 # skeletal animation
 # ==========
 
-def ConvertActionsToVDF(obj, armature, actions, options):
+def GetAnimationsStr(obj, armature, actions, options):
 	result = "{^}"
 
 	# todo: change to pose mode (or something like that)
 	for action in actions:
-		result += "\n" + action.name + ":" + ConvertActionToVDF(obj, armature, action, options)
+		result += "\n" + action.name + ":" + GetActionStr(obj, armature, action, options)
 	result = v.indent_lines(result, 1, false)
 	# todo: revert mode
 
 	return result
 
-def ConvertActionToVDF(obj, armature, action, options):
+def GetActionStr(obj, armature, action, options):
 	if not options.option_animation_skeletal or len(bpy.data.actions) == 0:
 		return ""
 	if obj is None or armature is None:
 		return "", 0
 
 	# todo: add scaling influences
+
+	vdebug.StartSection()
 
 	# select object, change to pose mode, select action, change to dopesheet editor area type, and change to action mode
 	oldActiveObject = bpy.context.scene.objects.active
@@ -491,33 +486,29 @@ def ConvertActionToVDF(obj, armature, action, options):
 	bpy.context.area.spaces.active.action = action
 
 	armature_matrix = obj.matrix_world
-
 	fps = bpy.data.scenes[0].render.fps
-
-	end_frame = action.frame_range[1]
 	start_frame = action.frame_range[0]
-
+	end_frame = action.frame_range[1]
 	frame_length = end_frame - start_frame
-
 	used_frames = int(frame_length) + 1
 
-	keys = []
-	channels_location = []
-	channels_rotation = []
-	channels_scale = []
-	
-	# precompute per-bone data
-	for pose_bone in obj.pose.bones:
-		bone = pose_bone.bone
-		keys.append([])
-		channels_location.append(find_channels(action, bone, "location"))
-		channels_rotation.append(find_channels(action, bone, "rotation_quaternion"))
-		channels_rotation.append(find_channels(action, bone, "rotation_euler"))
-		channels_scale.append(find_channels(action, bone, "scale"))
+	bonePropertyChannelsSet = {}
+	for boneIndex, poseBone in enumerate(obj.pose.bones):
+		bonePropertyChannels = {}
+		bonePropertyChannels["location"] = GetBoneChannels(action, poseBone, "location")
+		bonePropertyChannels["rotation"] = GetBoneChannels(action, poseBone, "rotation_quaternion")
+		if len(bonePropertyChannels["rotation"]) == 0:
+			bonePropertyChannels["rotationChannels"] = GetBoneChannels(action, poseBone, "rotation_euler")
+		bonePropertyChannels["scale"] = GetBoneChannels(action, poseBone, "scale")
+		bonePropertyChannelsSet[poseBone.name] = bonePropertyChannels
 
-	# process all frames
-	for frame_i in range(0, used_frames):
-		#print("Processing frame %d/%d" % (frame_i, used_frames))
+	vdebug.EndSection("1")
+
+	keys = {}
+	for frame_i in range(0, used_frames): # process all frames
+
+		vdebug.StartSection()
+
 		# compute the index of the current frame (snap the last index to the end)
 		frame = start_frame + frame_i
 		if frame_i == used_frames - 1:
@@ -532,25 +523,46 @@ def ConvertActionToVDF(obj, armature, action, options):
 		# let blender compute the pose bone transformations
 		bpy.data.scenes[0].frame_set(frame)
 
+		vdebug.EndSection("2")
+
 		# process all bones for the current frame
-		bone_index = 0
-		for pose_bone in obj.pose.bones:
+		for boneIndex, poseBone in enumerate(obj.pose.bones):
+			vdebug.StartSection()
+
+			if boneIndex not in keys:
+				keys[boneIndex] = []
+
 			# extract the bone transformations
-			if pose_bone.parent is None:
-				bone_matrix = armature_matrix * pose_bone.matrix
+			if poseBone.parent is None:
+				bone_matrix = armature_matrix * poseBone.matrix
 			else:
-				parent_matrix = armature_matrix * pose_bone.parent.matrix
-				bone_matrix = armature_matrix * pose_bone.matrix
+				parent_matrix = armature_matrix * poseBone.parent.matrix
+				bone_matrix = armature_matrix * poseBone.matrix
 				bone_matrix = parent_matrix.inverted() * bone_matrix
 			pos, rotQ, scl = bone_matrix.decompose()
 			rotQ = v.Quaternion_toDegrees(rotQ)
 			rotEuler = v.Vector_toDegrees(rotQ.to_euler("XYZ"))
 
-			isKeyframe = has_keyframe_at(channels_location[bone_index], frame) or has_keyframe_at(channels_rotation[bone_index], frame) or has_keyframe_at(channels_scale[bone_index], frame)
+			bonePropertyChannels = bonePropertyChannelsSet[poseBone.name]
+
+			#isKeyframe = has_keyframe_at(channels_location[boneIndex], frame) or has_keyframe_at(channels_rotation[boneIndex], frame) or has_keyframe_at(channels_scale[boneIndex], frame)
+			isKeyframe = has_keyframe_at(bonePropertyChannels["location"], frame) or has_keyframe_at(bonePropertyChannels["rotation"], frame) or has_keyframe_at(bonePropertyChannels["scale"], frame)
+
+			vdebug.EndSection("3")
+
+			#__import__('code').interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
+			#isKeyframe = true
+
 			if isKeyframe:
-				pchange = True or has_keyframe_at(channels_location[bone_index], frame)
-				rchange = True or has_keyframe_at(channels_rotation[bone_index], frame)
-				schange = True or has_keyframe_at(channels_scale[bone_index], frame)
+
+				vdebug.StartSection()
+
+				'''pchange = has_keyframe_at(bonePropertyChannels["location"], frame)
+				rchange = has_keyframe_at(bonePropertyChannels["rotation"], frame)
+				schange = has_keyframe_at(bonePropertyChannels["scale"], frame)'''
+				pchange = true
+				rchange = true
+				schange = true
 
 				if options.option_flip_yz:
 					px, py, pz = pos.x, pos.z, -pos.y
@@ -566,16 +578,19 @@ def ConvertActionToVDF(obj, armature, action, options):
 				rotStr = generate_vec3(rotEuler) if options.rotationDataType == "Euler Angle" else ("[" + s(rx) + " " + s(ry) + " " + s(rz) + " " + s(rw) + "]")
 				scaleStr = "[" + s(sx) + " " + s(sy) + " " + s(sz) + "]"
 
+				vdebug.EndSection("4")
+				vdebug.StartSection()
+
 				# START-FRAME: needs position, rotation, and scale attributes (required frame)
 				if frame == start_frame:
 					keyframe = s(time) + ':{position:' + posStr + ' rotation:' + rotStr + ' scale:' + scaleStr + '}'
-					keys[bone_index].append(keyframe)
+					keys[boneIndex].append(keyframe)
 
 				# END-FRAME: needs position, rotation, and scale attributes with animation length
 				# (required frame)
 				elif frame == end_frame:
 					keyframe = s(time) + ':{position:' + posStr + ' rotation:' + rotStr + ' scale:' + scaleStr + '}'
-					keys[bone_index].append(keyframe)
+					keys[boneIndex].append(keyframe)
 
 				# MIDDLE-FRAME: needs only one of the attributes, can be an empty frame
 				# (optional frame)
@@ -589,16 +604,18 @@ def ConvertActionToVDF(obj, armature, action, options):
 						keyframe = keyframe + ' scale:' + scaleStr
 					keyframe = keyframe + '}'
 
-					keys[bone_index].append(keyframe)
-			bone_index += 1
+					keys[boneIndex].append(keyframe)
+
+				vdebug.EndSection("5")
+
+	vdebug.StartSection()
 
 	# gather data
 	parents = []
 	bone_index = 0
-	for pose_bone in obj.pose.bones:
-		keys_string = "\n\t".join(keys[bone_index])
-		parent = pose_bone.name + ':{^}\n\t%s' % (keys_string)
-		bone_index += 1
+	for boneIndex, poseBone in enumerate(obj.pose.bones):
+		keys_string = "\n\t".join(keys[boneIndex])
+		parent = poseBone.name + ':{^}\n\t%s' % (keys_string)
 		parents.append(parent)
 	boneKeyframesStr = "{^}\n" + v.indent_lines("\n".join(parents))
 
@@ -606,6 +623,9 @@ def ConvertActionToVDF(obj, armature, action, options):
 		length = frame_length
 	else:
 		length = frame_length / fps
+
+	vdebug.EndSection("6")
+	vdebug.StartSection()
 
 	animation_string = "{^}"
 	#animation_string += "\nname:" + action.name
@@ -623,29 +643,72 @@ def ConvertActionToVDF(obj, armature, action, options):
 	bpy.ops.object.mode_set(mode = oldMode)
 	bpy.context.scene.objects.active = oldActiveObject
 	
+	vdebug.EndSection("7")
+
 	return animation_string
 
+'''
 def find_channels(action, bone, channel_type):
 	bone_name = bone.name
 	ngroups = len(action.groups)
 	result = []
-	if ngroups > 0: # Variant 1: channels grouped by bone names
-		# Find the channel group for the given bone
-		group_index = -1
-		for i in range(ngroups):
+	if ngroups > 0: # variant 1: channels grouped by bone names
+
+		# variant a: groups are per-bone
+		for group_index in range(ngroups):# find the channel group for the given bone
 			if action.groups[i].name == bone_name:
-				group_index = i
-		# Get all desired channels in that group
-		if group_index > -1:
-			for channel in action.groups[group_index].channels:
-				if channel_type in channel.data_path:
+				for channel in action.groups[group_index].channels: # get all desired channels in that group
+					if channel_type in channel.data_path:
+						result.append(channel)
+		
+		''#'
+		# variant b: groups are per-armature
+		for groupIndex, group in action.groups.items():
+			for channel in action.groups[groupIndex].channels:
+				# example: data_path == "pose.bones["ELEPHANt_ear_L_2"].location" (important note: there can be three location channels: one for x, one for y, and one for z)
+				if ("['" + bone_name + "']") in action.groups[i].name and channel_type in channel.data_path:
 					result.append(channel)
-	else: # Variant 2: no channel groups, bone names included in channel names
+		''#'
+
+	else: # variant 2: no channel groups, bone names included in channel names
 		bone_label = '"%s"' % bone_name
 		for channel in action.fcurves:
 			data_path = channel.data_path
 			if bone_label in data_path and channel_type in data_path:
 				result.append(channel)
+
+	__import__("code").interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
+
+	return result
+'''
+
+def GetBoneChannels(action, bone, channelType):
+	result = []
+
+	vdebug.StartSection()
+
+	#next((a for a in action.groups if a.name == bone.name), nothing) != nothing:
+	if len(action.groups) > 0 and v.any(action.groups, lambda a:a.name == bone.name): # variant 1: groups:[{name:"Bone1", channels:[{data_path:"location"}]}]
+		for groupIndex, group in action.groups.items(): # find the channel group for the given bone
+			if group.name == bone.name:
+				for channel in group.channels: # get all desired channels in that group
+					if channelType in channel.data_path:
+						result.append(channel)
+	elif len(action.groups) > 0: # variant 2: groups:[{name:"Armature", channels:[{data_path:"pose.bones[\"Bone1\"].location"}]}]
+		for groupIndex, group in action.groups.items():
+			for channel in group.channels:
+				# example: data_path == "pose.bones["ELEPHANt_ear_L_2"].location" (important note: there can be three location channels: one for x, one for y, and one for z)
+				if ("[\"" + bone.name + "\"]") in channel.data_path and channelType in channel.data_path:
+					result.append(channel)
+	else: # variant 3: fcurves:[{data_path:"pose.bones[\"Bone1\"].location"}]
+		bone_label = '"%s"' % bone.name
+		for channel in action.fcurves:
+			data_path = channel.data_path
+			if bone_label in data_path and channelType in data_path:
+				result.append(channel)
+
+	vdebug.EndSection("a")
+
 	return result
 
 def find_keyframe_at(channel, frame):

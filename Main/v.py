@@ -5,7 +5,7 @@ from mathutils import *
 # snippets
 # ==========
 
-#__import__('code').interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
+#__import__("code").interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
 
 # constants
 # ==========
@@ -13,6 +13,12 @@ from mathutils import *
 nothing = None
 false = False
 true = True
+
+# linq
+# ==========
+
+def any(collection, matchFunc):
+	return len(list(filter(matchFunc, collection))) > 0
 
 # custom
 # ==========
