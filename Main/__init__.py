@@ -20,6 +20,15 @@
 # Init
 # ################################################################
 
+# todo: make this not needed, then remove it
+import io_scene_vmodel.v
+import io_scene_vmodel.vdebug
+import io_scene_vmodel.export_vmodel
+
+from io_scene_vmodel import *
+from io_scene_vmodel.v import nothing, false, true
+from io_scene_vmodel.v import Log, s
+
 bl_info = {
 	"name": "VModel format",
 	"author": "Venryx; source (ThreeJS) exporter authors: mrdoob, kikko, alteredq, remoe, pxf, n3tfr34k, crobi",
@@ -41,15 +50,13 @@ if "bpy" in locals():
 	import imp
 	if "v" in locals():
 		imp.reload(v)
+	if "vdebug" in locals():
+		imp.reload(vdebug)
 	if "export_vmodel" in locals():
 		imp.reload(export_vmodel)
 
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper, ImportHelper
-
-from io_scene_vmodel import *
-from io_scene_vmodel.v import nothing, false, true
-from io_scene_vmodel.v import Log, s
 
 # ################################################################
 # Custom properties

@@ -20,6 +20,10 @@
 Blender exporter for VModel format (.vmodel vdf files).
 """
 
+from io_scene_vmodel import *
+from io_scene_vmodel.v import nothing, false, true
+from io_scene_vmodel.v import Log, s
+
 import bpy
 import mathutils
 
@@ -29,10 +33,6 @@ import os.path
 import math
 import operator
 import random
-
-from io_scene_vmodel import *
-from io_scene_vmodel.v import nothing, false, true
-from io_scene_vmodel.v import Log, s
 
 # main
 # ==========
@@ -48,6 +48,20 @@ def save(operator, context, options):
 	text = "{^}"
 	text += "\nobjects:" + generate_objects({"scene": context.scene, "objects": context.scene.objects}, options)
 	text = v.indent_lines(text, 1, false)
+
+	'''vdebug.MarkSection("Mesh")
+	vdebug.MarkSection("1")
+	vdebug.MarkSection("2")
+	vdebug.MarkSection("3")
+	vdebug.MarkSection("4")
+	vdebug.MarkSection("a")
+	vdebug.MarkSection("b")
+	vdebug.MarkSection("c")
+	vdebug.MarkSection("d")
+	vdebug.MarkSection("Armature")
+	vdebug.MarkSection("Animations")'''
+
+	vdebug.MarkSections()
 
 	v.write_file(options.filepath, text)
 	return {'FINISHED'}
@@ -118,16 +132,21 @@ def ConvertObjectToVDF(obj, data, options):
 	object_string += "\nscale:" + generate_vec3(scale)
 
 	if obj.type == "MESH":
+		vdebug.StartSection("Mesh")
 		object_string += "\nmesh:" + generate_mesh_string(obj, data["scene"], options)
+		vdebug.EndSection("Mesh")
 	elif obj.type == "ARMATURE":
+		vdebug.StartSection("Armature")
 		object_string += "\narmature:" + ConvertArmatureToVDF(obj, obj.data, options)
+		vdebug.EndSection("Armature")
 
+		vdebug.StartSection("Animations")
 		actions = []
 		for action in bpy.data.actions:
 			if action.groups[0].name in obj.data.bones:
 				actions.append(action)
 		object_string += "\nanimations:" + ConvertActionsToVDF(obj, obj.data, actions, options)
-
+		vdebug.EndSection("Animations")
 	children_string = "{^}"
 	for child in obj.children:
 		if child.VModel_export:
@@ -257,8 +276,26 @@ def GetVertexesStr(obj, mesh, vertices, options):
 	if not options.option_vertices:
 		return ""
 
+	vertexInfoByVertexThenFaceThenLayer = {}
+	for faceIndex, face in enumerate(v.get_faces(mesh)):
+		for layerIndex, layer in enumerate(mesh.tessface_uv_textures): # for now, we assume there's only one
+			for faceVertexIndex, vertexIndex in enumerate(face.vertices):
+				if vertexIndex not in vertexInfoByVertexThenFaceThenLayer:
+					vertexInfoByVertexThenFaceThenLayer[vertexIndex] = {}
+				vertexInfo = vertexInfoByVertexThenFaceThenLayer[vertexIndex]
+
+				if faceIndex not in vertexInfo:
+					vertexInfo[faceIndex] = {}
+				faceInfo = vertexInfo[faceIndex]
+
+				if layerIndex not in faceInfo:
+					faceInfo[layerIndex] = {}
+				layerInfo = faceInfo[layerIndex]
+
+				layerInfo["uvPoint"] = layer.data[faceIndex].uv[faceVertexIndex]
+
 	result = "[^]"
-	for i, vertex in enumerate(vertices):
+	for vertexIndex, vertex in enumerate(vertices):
 		result += "\n{"
 		result += "position:[" + generate_vertex(vertex) + "]"
 		result += " normal:[" + s(vertex.normal[0]) + " " + s(vertex.normal[1]) + " " + s(vertex.normal[2]) + "]"
@@ -267,37 +304,21 @@ def GetVertexesStr(obj, mesh, vertices, options):
 		nuvs = []
 		uv_layers = []
 		if options.option_uv_coords and len(mesh.uv_textures) > 0 and (not mesh.uv_textures.active == nothing):
-			for index, layer in enumerate(mesh.tessface_uv_textures):
-				if len(uv_layers) <= index:
-					uvs = {}
-					count = 0
-					uv_layers.append(uvs)
-					nuvs.append(count)
-				else:
-					uvs = uv_layers[index]
-					count = nuvs[index]
-
-				uv_layer = layer.data
-				for face_index, face in enumerate(v.get_faces(mesh)):
-					for uv_index, uv in enumerate(uv_layer[face_index].uv):
-						key = v.veckey2d(uv)
-						if key not in uvs:
-							uvs[key] = count
-							count += 1
-				nuvs[index] = count
+			''' # this approach took 12.79 seconds
 			for faceIndex, face in enumerate(v.get_faces(mesh)):
-				for layer_index, uvs in enumerate(uv_layers): # for now, we assume there's only one
-					vecs = []
-					uv_layer = mesh.tessface_uv_textures[layer_index].data
-					for vec in uv_layer[faceIndex].uv:
-						vecs.append(vec)
+				for layerIndex, layer in enumerate(mesh.tessface_uv_textures): # for now, we assume there's only one
+					for faceVertexIndex, vertexIndex2 in enumerate(face.vertices):
+						if vertexIndex == vertexIndex2:
+							vec = layer.data[faceIndex].uv[faceVertexIndex]
+							result += " uv" + (s(layerIndex) if layerIndex > 0 else "") + "_face" + s(faceIndex) + ":[" + s(vec[0]) + " " + s(vec[1]) + "]" #s(posComp[0]) + " " + s(posComp[1]) + "]"
+			'''
 
-					faceVertexIndex = 0
-					for i2 in face.vertices:
-						if i2 == i:
-							vec = vecs[faceVertexIndex]
-							result += " uv" + (s(layer_index) if layer_index > 0 else "") + "_face" + s(faceIndex) + ":[" + s(vec[0]) + " " + s(vec[1]) + "]" #s(posComp[0]) + " " + s(posComp[1]) + "]"
-						faceVertexIndex += 1
+			# this approach took .69 seconds
+			vertexInfo = vertexInfoByVertexThenFaceThenLayer[vertexIndex]
+			for faceIndex, faceInfo in sorted(vertexInfo.items()):
+				for layerIndex, layerInfo in sorted(faceInfo.items()):
+					result += " uv" + (s(layerIndex) if layerIndex > 0 else "") + "_face" + s(faceIndex) + ":[" + s(layerInfo["uvPoint"][0]) + " " + s(layerInfo["uvPoint"][1]) + "]"
+
 		result += " boneWeights:" + GetBoneWeightsStr(obj, mesh, vertex) + "}"
 
 	result = v.indent_lines(result, 1, false)
