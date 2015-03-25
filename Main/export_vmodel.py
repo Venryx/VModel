@@ -34,6 +34,8 @@ import math
 import operator
 import random
 
+import bmesh
+
 # main
 # ==========
 
@@ -147,6 +149,7 @@ def ConvertObjectToVDF(obj, data, options):
 				actions.append(action)
 		object_string += "\nanimations:" + GetAnimationsStr(obj, obj.data, actions, options)
 		vdebug.EndSection("Animations")
+
 	children_string = "{^}"
 	for child in obj.children:
 		if child.VModel_export:
@@ -191,8 +194,7 @@ def extract_mesh(obj, scene, options):
 def GetMeshStr(obj, scene, options):
 	mesh = extract_mesh(obj, scene, options)
 
-	'''
-	morphs = []
+	'''morphs = []
 	if options.option_animation_morph:
 		original_frame = scene.frame_current # save animation state
 		scene_frames = range(scene.frame_start, scene.frame_end + 1, 1)
@@ -222,35 +224,11 @@ def GetMeshStr(obj, scene, options):
 
 			# remove temp mesh
 			bpy.data.meshes.remove(anim_mesh)
-		scene.frame_set(original_frame, 0.0) # restore animation state
-	'''
+		scene.frame_set(original_frame, 0.0) # restore animation state'''
 
 	vertices = []
 	vertices.extend(mesh.vertices[:])
-
-	vertexColors = len(mesh.vertex_colors) > 0
-	mesh_extract_colors = options.option_colors and vertexColors
-	if vertexColors:
-		active_col_layer = mesh.vertex_colors.active
-		if not active_col_layer:
-			mesh_extract_colors = false
 	
-	ncolor = 0
-	colors = {}
-	if mesh_extract_colors:
-		ncolor = extract_vertex_colors(mesh, colors, ncolor)
-
-	morphTargets_string = ""
-	nmorphTarget = 0
-	if options.option_animation_morph:
-		chunks = []
-		for i, morphVertices in enumerate(morphs):
-			morphTarget = '{name:"%s_%06d" vertices:[%s]}' % ("animation", i, morphVertices)
-			chunks.append(morphTarget)
-
-		morphTargets_string = "[^]\n" + v.indent_lines("\n".join(chunks))
-		nmorphTarget = len(morphs)
-
 	if options.align_model == 1:
 		v.center(vertices)
 	elif options.align_model == 2:
@@ -260,9 +238,46 @@ def GetMeshStr(obj, scene, options):
 
 	model_string = "{^}"
 	model_string += "\nvertices:" + GetVertexesStr(obj, mesh, vertices, options)
-	model_string += "\nfaces:" + GetFacesStr(obj, mesh)
-	#model_string += "\nmorphTargets:" + morphTargets_string
-	#model_string += "\ncolors:" + generate_vertex_colors(colors, options.option_colors)
+
+	if len(obj.data.materials) == 0:
+		model_string += "\nfaces:" + GetFacesStr(obj, mesh, -1)
+	else:
+		for materialIndex, material in enumerate(obj.data.materials):
+			model_string += "\nfaces" + (s(materialIndex + 1) if materialIndex > 0 else "") + ":" + GetFacesStr(obj, mesh, materialIndex)
+
+			materialStr = "\nmaterial" + (s(materialIndex + 1) if materialIndex > 0 else "") + ":{diffuseColor:\"" + ColorToHexStr(material.diffuse_color) + "\""
+			if material.node_tree != nothing: # todo: make sure this is correct
+				for node in material.node_tree.nodes:
+					if node.type == "TEX_IMAGE": # for now, we just assume that the first image-texture node holds the texture actually used
+						materialStr += " texture:\"" + node.image.name + "\""
+			materialStr += "}"
+			model_string += materialStr
+
+	'''morphTargets_string = ""
+	nmorphTarget = 0
+	if options.option_animation_morph:
+		chunks = []
+		for i, morphVertices in enumerate(morphs):
+			morphTarget = '{name:"%s_%06d" vertices:[%s]}' % ("animation", i, morphVertices)
+			chunks.append(morphTarget)
+
+		morphTargets_string = "[^]\n" + v.indent_lines("\n".join(chunks))
+		nmorphTarget = len(morphs)
+	model_string += "\nmorphTargets:" + morphTargets_string'''
+
+	'''vertexColors = len(mesh.vertex_colors) > 0
+	mesh_extract_colors = options.option_colors and vertexColors
+	if vertexColors:
+		active_col_layer = mesh.vertex_colors.active
+		if not active_col_layer:
+			mesh_extract_colors = false
+
+	ncolor = 0
+	colors = {}
+	if mesh_extract_colors:
+		ncolor = extract_vertex_colors(mesh, colors, ncolor)
+	model_string += "\ncolors:" + generate_vertex_colors(colors, options.option_colors)'''
+
 	if obj.find_armature():
 		model_string += "\narmature:\"" + obj.find_armature().name + "\""
 
@@ -271,6 +286,18 @@ def GetMeshStr(obj, scene, options):
 	bpy.data.meshes.remove(mesh) # remove temp mesh
 
 	return model_string
+
+def ColorToHexStr(color):
+	result = ""
+	for colorComp in color:
+		# compensate for gamma-correction thing (full white was showing up as "cccccc" (204, 204, 204) before)
+		# see: http://blenderartists.org/forum/showthread.php?320221-Converting-HEX-colors-to-blender-RGB
+		colorComp *= 255 / 204
+		compStr = s(hex(int(colorComp * 255)))[2:]
+		while len(compStr) < 2:
+			compStr = "0" + compStr
+		result += compStr
+	return result
 
 def GetVertexesStr(obj, mesh, vertices, options):
 	if not options.option_vertices:
@@ -325,7 +352,10 @@ def GetVertexesStr(obj, mesh, vertices, options):
 						uvsStr += " uv" + (s(layerIndex + 1) if layerIndex > 0 else "") + "_face" + s(faceIndex) + ":[" + s(faceInfo["uvPoint"][0]) + " " + s(faceInfo["uvPoint"][1]) + "]"
 		result += uvsStr
 
-		result += " boneWeights:" + GetBoneWeightsStr(obj, mesh, vertex) + "}"
+		if obj.find_armature() != nothing:
+			result += " boneWeights:" + GetBoneWeightsStr(obj, mesh, vertex)
+			
+		result += "}"
 
 	result = v.indent_lines(result, 1, false)
 	return result
@@ -376,13 +406,21 @@ def generate_vertex_colors(colors, options):
 # faces
 # ==========
 
-def GetFacesStr(obj, mesh):
+def GetFacesStr(obj, mesh, materialIndex): # todo
 	result = "["
 	for faceIndex, face in enumerate(v.get_faces(mesh)):
-		result += (" " if faceIndex != 0 else "") + "["
-		for i in range(len(face.vertices)):
-			result += (" " if i != 0 else "") + s(face.vertices[i])
-		result += "]"
+		'''bpy.ops.object.mode_set(mode = "EDIT") # go to edit mode to create bmesh
+		bm = bmesh.from_edit_mesh(obj.data) # create bmesh object from object mesh
+		#bmFace = bm.faces[faceIndex]
+		for faceIndex2, face2 in enumerate(bm.faces):
+			__import__("code").interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
+		# if bmFace.material_index == materialIndex or materialIndex == -1:
+		bpy.ops.object.mode_set(mode = oldMode)'''
+		if face.material_index == materialIndex or materialIndex == -1:
+			result += (" " if len(result) > 1 else "") + "[" #result += (" " if faceIndex != 0 else "") + "["
+			for vertexIndex, vertex in enumerate(face.vertices):
+				result += (" " if vertexIndex != 0 else "") + s(vertex)
+			result += "]"
 	result += "]"
 	return result
 

@@ -58,23 +58,10 @@ if "bpy" in locals():
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 
-# ################################################################
-# Custom properties
-# ################################################################
+# VModel object panel
+# ==========
 
 bpy.types.Object.VModel_export = bpy.props.BoolProperty(default = True)
-
-bpy.types.Material.VModel_useVertexColors = bpy.props.BoolProperty()
-bpy.types.Material.VModel_depthWrite = bpy.props.BoolProperty(default = True)
-bpy.types.Material.VModel_depthTest = bpy.props.BoolProperty(default = True)
-
-VModel_material_types = [("Basic", "Basic", "Basic"), ("Phong", "Phong", "Phong"), ("Lambert", "Lambert", "Lambert")]
-bpy.types.Material.VModel_materialType = EnumProperty(name = "Material type", description = "Material type", items = VModel_material_types, default = "Lambert")
-
-VModel_blending_types = [("NoBlending", "NoBlending", "NoBlending"), ("NormalBlending", "NormalBlending", "NormalBlending"),
-						("AdditiveBlending", "AdditiveBlending", "AdditiveBlending"), ("SubtractiveBlending", "SubtractiveBlending", "SubtractiveBlending"),
-						("MultiplyBlending", "MultiplyBlending", "MultiplyBlending"), ("AdditiveAlphaBlending", "AdditiveAlphaBlending", "AdditiveAlphaBlending")]
-bpy.types.Material.VModel_blendingType = EnumProperty(name = "Blending type", description = "Blending type", items = VModel_blending_types, default = "NormalBlending")
 
 class OBJECT_PT_hello(bpy.types.Panel):
 
@@ -93,8 +80,20 @@ class OBJECT_PT_hello(bpy.types.Panel):
 		row = layout.row()
 		row.prop(obj, "VModel_export", text="Export object")
 
-class MATERIAL_PT_hello(bpy.types.Panel):
+# VModel material panel
+# ==========
 
+VModel_material_types = [("Basic", "Basic", "Basic"), ("Phong", "Phong", "Phong"), ("Lambert", "Lambert", "Lambert")]
+bpy.types.Material.VModel_materialType = EnumProperty(name = "Material type", description = "Material type", items = VModel_material_types, default = "Lambert")
+
+'''VModel_blending_types = [("NoBlending", "NoBlending", "NoBlending"), ("NormalBlending", "NormalBlending", "NormalBlending"),
+						("AdditiveBlending", "AdditiveBlending", "AdditiveBlending"), ("SubtractiveBlending", "SubtractiveBlending", "SubtractiveBlending"),
+						("MultiplyBlending", "MultiplyBlending", "MultiplyBlending"), ("AdditiveAlphaBlending", "AdditiveAlphaBlending", "AdditiveAlphaBlending")]
+bpy.types.Material.VModel_blendingType = EnumProperty(name = "Blending type", description = "Blending type", items = VModel_blending_types, default = "NormalBlending")'''
+
+#bpy.types.Material.VModel_useVertexColors = bpy.props.BoolProperty()
+
+class MATERIAL_PT_hello(bpy.types.Panel):
 	bl_label = "VModel"
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
@@ -110,17 +109,11 @@ class MATERIAL_PT_hello(bpy.types.Panel):
 		row = layout.row()
 		row.prop(mat, "VModel_materialType", text="Material type")
 
-		row = layout.row()
-		row.prop(mat, "VModel_blendingType", text="Blending type")
+		#row = layout.row()
+		#row.prop(mat, "VModel_blendingType", text="Blending type")
 
-		row = layout.row()
-		row.prop(mat, "VModel_useVertexColors", text="Use vertex colors")
-
-		row = layout.row()
-		row.prop(mat, "VModel_depthWrite", text="Enable depth writing")
-
-		row = layout.row()
-		row.prop(mat, "VModel_depthTest", text="Enable depth testing")
+		#row = layout.row()
+		#row.prop(mat, "VModel_useVertexColors", text="Use vertex colors")
 
 # ################################################################
 # Exporter - settings
