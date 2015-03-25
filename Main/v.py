@@ -61,7 +61,7 @@ def s(obj, numberTruncate = nothing):
 	
 	return result
 
-def indent_lines(str, count = 1, indentFirstLine = true):
+def indentLines(str, count = 1, indentFirstLine = true):
 	for i in range(0, count):
 		if indentFirstLine:
 			str = "\t" + str

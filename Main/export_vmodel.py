@@ -49,7 +49,7 @@ def save(operator, context, options):
 
 	text = "{^}"
 	text += "\nobjects:" + generate_objects({"scene": context.scene, "objects": context.scene.objects}, options)
-	text = v.indent_lines(text, 1, false)
+	text = v.indentLines(text, 1, false)
 
 	'''vdebug.MarkSection("Mesh")
 	vdebug.MarkSection("1")
@@ -115,7 +115,7 @@ def generate_objects(data, options):
 	for obj in data["objects"]:
 		if obj.parent == nothing and obj.VModel_export: # root objects
 			chunks.append(obj.name + ":" + ConvertObjectToVDF(obj, data, options))
-	return "{^}\n" + v.indent_lines("\n".join(chunks))
+	return "{^}\n" + v.indentLines("\n".join(chunks))
 
 def ConvertObjectToVDF(obj, data, options):
 	object_string = "{^}"
@@ -155,9 +155,9 @@ def ConvertObjectToVDF(obj, data, options):
 		if child.VModel_export:
 			children_string += "\n" + child.name + ":" + ConvertObjectToVDF(child, data, options)
 	if len(children_string) > len("{^}"):
-		object_string += "\nchildren:" + v.indent_lines(children_string, 1, false)
+		object_string += "\nchildren:" + v.indentLines(children_string, 1, false)
 
-	object_string = v.indent_lines(object_string, 1, false)
+	object_string = v.indentLines(object_string, 1, false)
 
 	return object_string
 
@@ -238,20 +238,8 @@ def GetMeshStr(obj, scene, options):
 
 	model_string = "{^}"
 	model_string += "\nvertices:" + GetVertexesStr(obj, mesh, vertices, options)
-
-	if len(obj.data.materials) == 0:
-		model_string += "\nfaces:" + GetFacesStr(obj, mesh, -1)
-	else:
-		for materialIndex, material in enumerate(obj.data.materials):
-			model_string += "\nfaces" + (s(materialIndex + 1) if materialIndex > 0 else "") + ":" + GetFacesStr(obj, mesh, materialIndex)
-
-			materialStr = "\nmaterial" + (s(materialIndex + 1) if materialIndex > 0 else "") + ":{diffuseColor:\"" + ColorToHexStr(material.diffuse_color) + "\""
-			if material.node_tree != nothing: # todo: make sure this is correct
-				for node in material.node_tree.nodes:
-					if node.type == "TEX_IMAGE": # for now, we just assume that the first image-texture node holds the texture actually used
-						materialStr += " texture:\"" + node.image.name + "\""
-			materialStr += "}"
-			model_string += materialStr
+	model_string += "\nfaces:" + GetFacesStr(obj, mesh)
+	model_string += "\nmaterials:" + GetMaterialsStr(obj, mesh)
 
 	'''morphTargets_string = ""
 	nmorphTarget = 0
@@ -261,7 +249,7 @@ def GetMeshStr(obj, scene, options):
 			morphTarget = '{name:"%s_%06d" vertices:[%s]}' % ("animation", i, morphVertices)
 			chunks.append(morphTarget)
 
-		morphTargets_string = "[^]\n" + v.indent_lines("\n".join(chunks))
+		morphTargets_string = "[^]\n" + v.indentLines("\n".join(chunks))
 		nmorphTarget = len(morphs)
 	model_string += "\nmorphTargets:" + morphTargets_string'''
 
@@ -281,23 +269,11 @@ def GetMeshStr(obj, scene, options):
 	if obj.find_armature():
 		model_string += "\narmature:\"" + obj.find_armature().name + "\""
 
-	model_string = v.indent_lines(model_string, 1, false)
+	model_string = v.indentLines(model_string, 1, false)
 
 	bpy.data.meshes.remove(mesh) # remove temp mesh
 
 	return model_string
-
-def ColorToHexStr(color):
-	result = ""
-	for colorComp in color:
-		# compensate for gamma-correction thing (full white was showing up as "cccccc" (204, 204, 204) before)
-		# see: http://blenderartists.org/forum/showthread.php?320221-Converting-HEX-colors-to-blender-RGB
-		colorComp *= 255 / 204
-		compStr = s(hex(int(colorComp * 255)))[2:]
-		while len(compStr) < 2:
-			compStr = "0" + compStr
-		result += compStr
-	return result
 
 def GetVertexesStr(obj, mesh, vertices, options):
 	if not options.option_vertices:
@@ -357,7 +333,7 @@ def GetVertexesStr(obj, mesh, vertices, options):
 			
 		result += "}"
 
-	result = v.indent_lines(result, 1, false)
+	result = v.indentLines(result, 1, false)
 	return result
 
 def GetBoneWeightsStr(obj, mesh, vertex):
@@ -406,7 +382,7 @@ def generate_vertex_colors(colors, options):
 # faces
 # ==========
 
-def GetFacesStr(obj, mesh, materialIndex): # todo
+def GetFacesStr(obj, mesh):
 	result = "["
 	for faceIndex, face in enumerate(v.get_faces(mesh)):
 		'''bpy.ops.object.mode_set(mode = "EDIT") # go to edit mode to create bmesh
@@ -416,12 +392,49 @@ def GetFacesStr(obj, mesh, materialIndex): # todo
 			__import__("code").interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
 		# if bmFace.material_index == materialIndex or materialIndex == -1:
 		bpy.ops.object.mode_set(mode = oldMode)'''
-		if face.material_index == materialIndex or materialIndex == -1:
+
+		'''if face.material_index == materialIndex or materialIndex == -1:
 			result += (" " if len(result) > 1 else "") + "[" #result += (" " if faceIndex != 0 else "") + "["
 			for vertexIndex, vertex in enumerate(face.vertices):
 				result += (" " if vertexIndex != 0 else "") + s(vertex)
-			result += "]"
+			result += "]"'''
+
+		result += (" " if faceIndex != 0 else "") + "["
+		for vertexIndex, vertex in enumerate(face.vertices):
+			result += (" " if vertexIndex != 0 else "") + s(vertex)
+		if face.material_index > 0:
+			result += " {material:" + s(face.material_index) + "}"
+		result += "]"
 	result += "]"
+	return result
+
+# materials
+# ==========
+
+def GetMaterialsStr(obj, mesh):
+	result = "[^]"
+	for materialIndex, material in enumerate(obj.data.materials):
+		result += "\n{diffuseColor:\"" + ColorToHexStr(material.diffuse_color) + "\""
+		if material.node_tree != nothing: # todo: make sure this is correct
+			for node in material.node_tree.nodes:
+				if node.type == "TEX_IMAGE": # for now, we just assume that the first image-texture node holds the texture actually used
+					result += " texture:\"" + node.image.name + "\""
+		result += "}"
+
+	result = v.indentLines(result, 1, false)
+
+	return result
+
+def ColorToHexStr(color):
+	result = ""
+	for colorComp in color:
+		# compensate for gamma-correction thing (full white was showing up as "cccccc" (204, 204, 204) before)
+		# see: http://blenderartists.org/forum/showthread.php?320221-Converting-HEX-colors-to-blender-RGB
+		colorComp *= 255 / 204
+		compStr = s(hex(int(colorComp * 255)))[2:]
+		while len(compStr) < 2:
+			compStr = "0" + compStr
+		result += compStr
 	return result
 
 # armature
@@ -440,8 +453,8 @@ def GetArmatureStr(obj, armature, options):
 	for poseBone in obj.pose.bones: #armature.bones
 		bone = poseBone.bone
 		if obj.data.edit_bones[bone.name].parent == nothing:
-			bones_string += "\n" + v.indent_lines(GetBoneStr(obj, armature, bone, options))
-	result += "\n" + v.indent_lines("bones:" + bones_string)
+			bones_string += "\n" + v.indentLines(GetBoneStr(obj, armature, bone, options))
+	result += "\n" + v.indentLines("bones:" + bones_string)
 
 	# revert
 	bpy.ops.object.mode_set(mode = oldMode)
@@ -481,7 +494,7 @@ def GetBoneStr(obj, armature, bone, options):
 	childrenStr = ""
 	if len(obj.data.edit_bones[bone.name].children) > 0:
 		for childEditBone in obj.data.edit_bones[bone.name].children:
-			childrenStr += "\n" + v.indent_lines(GetBoneStr(obj, armature, next(a for a in armature.bones if a.name == childEditBone.name), options))
+			childrenStr += "\n" + v.indentLines(GetBoneStr(obj, armature, next(a for a in armature.bones if a.name == childEditBone.name), options))
 
 	result = bone.name + ":{position:" + positionStr + " rotation:" + rotationStr + " scale:" + scaleStr + (" children:[^]" if len(childrenStr) > 0 else "") + "}" + childrenStr
 
@@ -496,7 +509,7 @@ def GetAnimationsStr(obj, armature, actions, options):
 	# todo: change to pose mode (or something like that)
 	for action in actions:
 		result += "\n" + action.name + ":" + GetActionStr(obj, armature, action, options)
-	result = v.indent_lines(result, 1, false)
+	result = v.indentLines(result, 1, false)
 	# todo: revert mode
 
 	return result
@@ -655,7 +668,7 @@ def GetActionStr(obj, armature, action, options):
 		keys_string = "\n\t".join(keys[boneIndex])
 		parent = poseBone.name + ':{^}\n\t%s' % (keys_string)
 		parents.append(parent)
-	boneKeyframesStr = "{^}\n" + v.indent_lines("\n".join(parents))
+	boneKeyframesStr = "{^}\n" + v.indentLines("\n".join(parents))
 
 	if options.option_frame_index_as_time:
 		length = frame_length
@@ -670,7 +683,7 @@ def GetActionStr(obj, armature, action, options):
 	animation_string += "\nfps:" + s(fps)
 	animation_string += "\nlength:" + s(length)
 	animation_string += "\nboneKeyframes:" + boneKeyframesStr
-	animation_string = v.indent_lines(animation_string, 1, false)
+	animation_string = v.indentLines(animation_string, 1, false)
 
 	bpy.data.scenes[0].frame_set(start_frame)
 
