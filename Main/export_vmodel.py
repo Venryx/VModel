@@ -496,7 +496,7 @@ def GetBoneStr(obj, armature, bone, options):
 		for childEditBone in obj.data.edit_bones[bone.name].children:
 			childrenStr += "\n" + v.indentLines(GetBoneStr(obj, armature, next(a for a in armature.bones if a.name == childEditBone.name), options))
 
-	result = bone.name + ":{position:" + positionStr + " rotation:" + rotationStr + " scale:" + scaleStr + (" children:[^]" if len(childrenStr) > 0 else "") + "}" + childrenStr
+	result = bone.name + ":{position:" + positionStr + " rotation:" + rotationStr + " scale:" + scaleStr + (" children:{^}" if len(childrenStr) > 0 else "") + "}" + childrenStr
 
 	return result
 
