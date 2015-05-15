@@ -120,14 +120,24 @@ def generate_objects(data, options):
 def ConvertObjectToVDF(obj, data, options):
 	object_string = "{^}"
 
-	if options.option_flip_yz:
+	'''if options.option_flip_yz:
 		ROTATE_X_PI2 = mathutils.Quaternion((1.0, 0.0, 0.0), math.radians(-90.0)).to_matrix().to_4x4()
 		matrix_world = ROTATE_X_PI2 * obj.matrix_world
 	else:
 		matrix_world = obj.matrix_world
-	position, rotationQ, scale = matrix_world.decompose()
-	rotationQ = v.Quaternion_toDegrees(rotationQ)
-	rotation = v.Vector_toDegrees(rotationQ.to_euler("ZYX"))
+	position, rotationQ, scale = matrix_world.decompose()'''
+	if options.option_flip_yz:
+		ROTATE_X_PI2 = mathutils.Quaternion((1.0, 0.0, 0.0), math.radians(-90.0)).to_matrix().to_4x4()
+		matrix_local = ROTATE_X_PI2 * obj.matrix_local
+	else:
+		matrix_local = obj.matrix_local
+	position, rotationQ, scale = matrix_local.decompose()
+	'''position = obj.localPosition
+	rotationQ = obj.localRotation
+	scale = obj.localScale'''
+
+	rotationQ_degrees = v.Quaternion_toDegrees(rotationQ)
+	rotation = v.Vector_toDegrees(rotationQ_degrees.to_euler("XYZ")); #ZYX"))
 
 	object_string += "\nposition:" + generate_vec3(position)
 	object_string += "\nrotation:" + (generate_vec3(rotation) if options.rotationDataType == "Euler Angle" else generate_quat(rotationQ))
@@ -174,13 +184,13 @@ def extract_mesh(obj, scene, options):
 		# preserve original name
 		mesh.name = obj.name
 
-		if true: #false: #export_single_model:
+		'''if true: #false: #export_single_model:
 			if options.option_flip_yz:
 				# that's what Blender's native export_obj.py does to flip YZ
 				X_ROT = mathutils.Matrix.Rotation(-math.pi / 2, 4, 'X')
 				mesh.transform(X_ROT * obj.matrix_world)
 			else:
-				mesh.transform(obj.matrix_world)
+				mesh.transform(obj.matrix_world)'''
 					
 		mesh.update(calc_tessface=True)
 
