@@ -20,6 +20,15 @@ true = True
 def any(collection, matchFunc):
 	return len(list(filter(matchFunc, collection))) > 0
 
+# custom - console helpers
+# ==========
+
+def GetObjByName(name):
+	for obj in data["objects"]:
+		if obj.name == name:
+			return obj
+	return nothing
+
 # custom
 # ==========
 
@@ -56,6 +65,10 @@ def s(obj, numberTruncate = nothing):
 			result = "0"
 		if result == ".0" or result == "-.0":
 			result = "0"
+	elif type(obj) == Vector: #elif obj is Vector:
+		result = "[" + s(obj.x) + " " + s(obj.y) + " " + s(obj.z) + "]"
+	elif type(obj) == Quaternion:
+		result = "[" + s(obj.x) + " " + s(obj.y) + " " + s(obj.z) + " " + s(obj.w) + "]"
 	else:
 		result = str(obj)
 	

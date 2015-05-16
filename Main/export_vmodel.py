@@ -155,7 +155,7 @@ def ConvertObjectToVDF(obj, data, options):
 		vdebug.StartSection("Animations")
 		actions = []
 		for action in bpy.data.actions:
-			if action.groups[0].name == obj.data.name or action.groups[0].name in obj.data.bones: # action == obj.animation_data.action # todo: make sure this is correct
+			if ActionContainsChannelsForArmature(action, obj.data): # action.groups[0].name == obj.data.name or action.groups[0].name in obj.data.bones: # action == obj.animation_data.action # todo: make sure this is correct
 				actions.append(action)
 		object_string += "\nanimations:" + GetAnimationsStr(obj, obj.data, actions, options)
 		vdebug.EndSection("Animations")
@@ -170,6 +170,14 @@ def ConvertObjectToVDF(obj, data, options):
 	object_string = v.indentLines(object_string, 1, false)
 
 	return object_string
+
+def ActionContainsChannelsForArmature(action, armature):
+	armatureBoneNames = [x.name for x in armature.bones]
+	for fcurve in action.fcurves:
+		boneName = fcurve.data_path[fcurve.data_path.find('"') + 1:fcurve.data_path.find('"', fcurve.data_path.find('"') + 1)]
+		if boneName in armatureBoneNames:
+			return true
+	return false
 
 # mesh
 # ==========
@@ -477,16 +485,23 @@ def GetBoneStr(obj, armature, bone, options):
 	armature_matrix = obj.matrix_world
 	poseBones = obj.pose.bones #armature.bones
 
-	if bone.parent is nothing:
+	'''if bone.parent is nothing:
 		bone_matrix = armature_matrix * bone.matrix_local
 	else:
 		parent_matrix = armature_matrix * bone.parent.matrix_local
 		bone_matrix = armature_matrix * bone.matrix_local
+		bone_matrix = parent_matrix.inverted() * bone_matrix'''
+	if bone.parent is nothing:
+		bone_matrix = bone.matrix_local
+	else:
+		parent_matrix = bone.parent.matrix_local
+		bone_matrix = bone.matrix_local
 		bone_matrix = parent_matrix.inverted() * bone_matrix
 
 	pos, rotQ, scl = bone_matrix.decompose()
-	rotQ = v.Quaternion_toDegrees(rotQ)
-	rotationEuler = v.Vector_toDegrees(rotQ.to_euler("XYZ"))
+
+	rotQ_degrees = v.Quaternion_toDegrees(rotQ)
+	rotationEuler = v.Vector_toDegrees(rotQ_degrees.to_euler("XYZ"))
 
 	#parentNameStr = ("\"" + obj.data.edit_bones[bone.name].parent.name + "\"") if obj.data.edit_bones[bone.name].parent != nothing else "null"
 	positionStr = ""
@@ -497,9 +512,9 @@ def GetBoneStr(obj, armature, bone, options):
 		rotationStr = ("[" + s(rotationEuler.x) + " " + s(rotationEuler.z) + " " + s(-rotationEuler.y) + "]") if options.rotationDataType == "Euler Angle" else ("[" + s(rotQ.x) + " " + s(rotQ.z) + " " + s(-rotQ.y) + " " + s(rotQ.w) + "]")
 		scaleStr = "[" + s(scl.x) + " " + s(scl.z) + " " + s(scl.y) + "]"
 	else:
-		positionStr = "[" + s(pos.x) + " " + s(pos.y) + " " + s(pos.z) + "]"
-		rotationStr = ("[" + s(rotationEuler.x) + " " + s(rotationEuler.y) + " " + s(rotationEuler.z) + "]") if options.rotationDataType == "Euler Angle" else ("[" + s(rotQ.x) + " " + s(rotQ.y) + " " + s(rotQ.z) + " " + s(rotQ.w) + "]")
-		scaleStr = "[" + s(scl.x) + " " + s(scl.y) + " " + s(scl.z) + "]"
+		positionStr = s(pos)
+		rotationStr = s(rotationEuler) if options.rotationDataType == "Euler Angle" else s(rotQ)
+		scaleStr = s(scl)
 
 	childrenStr = ""
 	if len(obj.data.edit_bones[bone.name].children) > 0:
@@ -545,8 +560,9 @@ def GetActionStr(obj, armature, action, options):
 	bpy.context.space_data.mode = "ACTION"
 	oldActiveAction = bpy.context.area.spaces.active.action #if "action" in bpy.context.area.spaces.active else nothing
 	bpy.context.area.spaces.active.action = action
+	oldFrame = bpy.data.scenes[0].frame_current
 
-	armature_matrix = obj.matrix_world
+	armature_matrix = obj.matrix_world #obj.matrix_local
 	fps = bpy.data.scenes[0].render.fps
 	start_frame = action.frame_range[0]
 	end_frame = action.frame_range[1]
@@ -594,15 +610,30 @@ def GetActionStr(obj, armature, action, options):
 				keys[boneIndex] = []
 
 			# extract the bone transformations
-			if poseBone.parent is None:
+			'''if poseBone.parent is None:
 				bone_matrix = armature_matrix * poseBone.matrix
 			else:
 				parent_matrix = armature_matrix * poseBone.parent.matrix
 				bone_matrix = armature_matrix * poseBone.matrix
+				bone_matrix = parent_matrix.inverted() * bone_matrix'''
+			if poseBone.parent is None:
+				bone_matrix = poseBone.matrix
+			else:
+				parent_matrix = poseBone.parent.matrix
+				bone_matrix = poseBone.matrix
 				bone_matrix = parent_matrix.inverted() * bone_matrix
+			#bone_matrix = armature_matrix * poseBone.matrix
 			pos, rotQ, scl = bone_matrix.decompose()
-			rotQ = v.Quaternion_toDegrees(rotQ)
-			rotEuler = v.Vector_toDegrees(rotQ.to_euler("XYZ"))
+
+			'''pos = poseBone.location
+			rotQ = poseBone.rotation_quaternion
+			scl = poseBone.scale'''
+
+			#pos, rotQ, scl = poseBone.matrix.decompose()
+			#__import__("code").interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
+
+			rotQ_degrees = v.Quaternion_toDegrees(rotQ)
+			rotEuler = v.Vector_toDegrees(rotQ_degrees.to_euler("XYZ"))
 
 			bonePropertyChannels = bonePropertyChannelsSet[poseBone.name]
 
@@ -698,6 +729,7 @@ def GetActionStr(obj, armature, action, options):
 	bpy.data.scenes[0].frame_set(start_frame)
 
 	# revert
+	bpy.data.scenes[0].frame_set(oldFrame)
 	bpy.context.area.spaces.active.action = oldActiveAction
 	bpy.context.space_data.mode = oldSpaceDataMode
 	bpy.context.area.type = oldContext
