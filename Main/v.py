@@ -141,7 +141,7 @@ def rgb2int(rgb):
 	color = (int(rgb[0] * 255) << 16) + (int(rgb[1] * 255) << 8) + int(rgb[2] * 255)
 	return color
 
-# Utils - files
+# utils - files
 # ==========
 
 def write_file(fname, content):
@@ -165,7 +165,7 @@ def generate_mesh_filename(meshname, filepath):
 	path, ext = os.path.splitext(normpath)
 	return "%s.%s%s" % (path, meshname, ext)
 
-# Utils - alignment
+# utils - alignment
 # ==========
 
 def bbox(vertices):
@@ -248,3 +248,53 @@ def bottom(vertices):
 	translate(vertices, [-cx,-cy,-cz])
 
 	return [-cx,-cy,-cz]
+
+# 3d position/rotation/scale
+# ==========
+
+def getBoneLocalMatrix(poseBoneOrBone, includeBaseMatrix = true, includePoseMatrix = true): # accepts either a pose-bone or a bone
+	poseBone = poseBoneOrBone if type(poseBoneOrBone).__name__ == "PoseBone" else nothing
+	bone = poseBone.bone if poseBone is not nothing else poseBoneOrBone
+
+	# get local matrix, using Blender's system
+	# ----------
+	
+	if poseBone is nothing or not includePoseMatrix:
+		if bone.parent is nothing:
+			localMatrix = bone.matrix_local
+		else:
+			localMatrix = bone.parent.matrix_local.inverted() * bone.matrix_local
+	else:
+		if bone.parent is nothing:
+			if not includeBaseMatrix:
+				localMatrix = bone.matrix_local.inverted() * poseBone.matrix
+			else:
+				localMatrix = poseBone.matrix
+		else:
+			if not includeBaseMatrix:
+				#localMatrix = (bone.parent.matrix_local.inverted() * poseBone.parent.matrix).inverted() * (bone.matrix_local.inverted() * poseBone.matrix)
+				localMatrix = (bone.parent.matrix_local.inverted() * bone.matrix_local).inverted() * (poseBone.parent.matrix.inverted() * poseBone.matrix)
+			else:
+				localMatrix = poseBone.parent.matrix.inverted() * poseBone.matrix
+
+	# fix the local matrix, to use the more sensible resting position/orientation (where the rest rotation has the tail-end toward z+, rather than y+)
+	# ----------
+
+	#if bone.parent is nothing:
+	#	localMatrix = fixMatrixForRootBone(localMatrix)
+
+	return localMatrix
+
+def fixMatrixForRootBone(localMatrix):
+	position, rotation, scale = localMatrix.decompose()
+
+	'''rotation = Quaternion([.707107, .707107, 0, 0]).rotation_difference(rotation) # w, x, y, z
+	yOld = rotation.y
+	rotation.y = -rotation.z
+	rotation.z = yOld'''
+	# todo; make sure this doesn't mess up the positions/rotations of its descendants (I think it does)
+
+	#rotation = Quaternion([.707107, 0, 0, .707107]).rotation_difference(rotation) # make it be rotated 90 degrees around the y-axis (using Unity's left-hand rule), when imported into Unity
+	#rotation = Quaternion([.707107, 0, 0, -.707107]) * rotation
+	
+	return Matrix.Translation(position) * rotation.to_matrix().to_4x4() * Matrix.Scale(1, 4, scale)

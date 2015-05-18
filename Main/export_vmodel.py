@@ -461,6 +461,11 @@ def ColorToHexStr(color):
 def GetArmatureStr(obj, armature, options):
 	result = "{^}"
 
+	# force bone positions/parenting/etc. to update (if user just moved some in edit mode, and hasn't left to object mode yet)
+	oldMode = bpy.context.object.mode
+	bpy.ops.object.mode_set(mode = "OBJECT")
+	bpy.ops.object.mode_set(mode = oldMode)
+
 	# select armature, and change to edit mode
 	oldActiveObject = bpy.context.scene.objects.active
 	bpy.context.scene.objects.active = obj
@@ -472,6 +477,7 @@ def GetArmatureStr(obj, armature, options):
 		bone = poseBone.bone
 		if obj.data.edit_bones[bone.name].parent == nothing:
 			bones_string += "\n" + v.indentLines(GetBoneStr(obj, armature, bone, options))
+			#bones_string += "\n" + v.indentLines(GetBoneStr(obj, armature, poseBone, options))
 	result += "\n" + v.indentLines("bones:" + bones_string)
 
 	# revert
@@ -481,9 +487,12 @@ def GetArmatureStr(obj, armature, options):
 	return result
 
 def GetBoneStr(obj, armature, bone, options):
+#def GetBoneStr(obj, armature, poseBone, options):
+#	bone = poseBone.bone
+
 	hierarchy = []
 	armature_matrix = obj.matrix_world
-	poseBones = obj.pose.bones #armature.bones
+	#poseBones = obj.pose.bones #armature.bones
 
 	'''if bone.parent is nothing:
 		bone_matrix = armature_matrix * bone.matrix_local
@@ -491,14 +500,38 @@ def GetBoneStr(obj, armature, bone, options):
 		parent_matrix = armature_matrix * bone.parent.matrix_local
 		bone_matrix = armature_matrix * bone.matrix_local
 		bone_matrix = parent_matrix.inverted() * bone_matrix'''
-	if bone.parent is nothing:
-		bone_matrix = bone.matrix_local
+	'''if bone.parent is nothing:
+		bone_matrix = v.getBoneLocalMatrix(bone) #bone.matrix_local
 	else:
-		parent_matrix = bone.parent.matrix_local
-		bone_matrix = bone.matrix_local
-		bone_matrix = parent_matrix.inverted() * bone_matrix
-
+		parent_matrix = v.getBoneLocalMatrix(bone.parent) #bone.parent.matrix_local
+		bone_matrix = v.getBoneLocalMatrix(bone) #bone.matrix_local
+		bone_matrix = parent_matrix.inverted() * bone_matrix'''
+	bone_matrix = v.getBoneLocalMatrix(bone, true, false) #poseBone)
+	if bone.parent == nothing:
+		bone_matrix = v.fixMatrixForRootBone(bone_matrix)
 	pos, rotQ, scl = bone_matrix.decompose()
+
+	#__import__("code").interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
+
+	'''pos = obj.location
+	rotQ = obj.rotation_quaternion
+	scl = obj.scale'''
+
+	#pos = bone.head_local
+	#pos, rotQ, scl = bone.matrix.to_4x4().decompose()
+	#rotQ, scl = bone.matrix.to_4x4().decompose()[1:]
+
+	# at-rest bones, even if they have 'rotation', don't actually apply their rotation to their descendent bones (i.e. the descendents local-position is actually just the position relative to the armature)
+	# so undo applying of parent-bone matrix to the current bone's location
+	# pos = bone.matrix_local.decompose()[0] if bone.parent is nothing else bone.matrix_local.decompose()[0] - bone.parent.matrix_local.decompose()[0]
+
+	# for some reason, the "rest" or "base" rotation of a bone is [-.5 0 0 0] (relative to the world) (i.e. rotated forward 90 degrees--with the tail/tip/non-core-end having a higher y value)
+	# we're going to correct that, so that the stored rotation is the rotation to get from the world-rotation (identity/none/[0 0 0 1]) to the bone rotation
+	#rotQ = mathutils.Quaternion([.707107, .707107, 0, 0]).inverted() * rotQ # w, x, y, z
+	'''rotQ = mathutils.Quaternion([.707107, .707107, 0, 0]).rotation_difference(rotQ)
+	yOld = rotQ.y
+	rotQ.y = -rotQ.z
+	rotQ.z = yOld'''
 
 	rotQ_degrees = v.Quaternion_toDegrees(rotQ)
 	rotationEuler = v.Vector_toDegrees(rotQ_degrees.to_euler("XYZ"))
@@ -522,6 +555,7 @@ def GetBoneStr(obj, armature, bone, options):
 			childrenStr += "\n" + v.indentLines(GetBoneStr(obj, armature, next(a for a in armature.bones if a.name == childEditBone.name), options))
 
 	result = bone.name + ":{position:" + positionStr + " rotation:" + rotationStr + " scale:" + scaleStr + (" children:{^}" if len(childrenStr) > 0 else "") + "}" + childrenStr
+	#result = bone.name + ":{position:" + positionStr + " scale:" + scaleStr + (" children:{^}" if len(childrenStr) > 0 else "") + "}" + childrenStr
 
 	return result
 
@@ -616,13 +650,16 @@ def GetActionStr(obj, armature, action, options):
 				parent_matrix = armature_matrix * poseBone.parent.matrix
 				bone_matrix = armature_matrix * poseBone.matrix
 				bone_matrix = parent_matrix.inverted() * bone_matrix'''
-			if poseBone.parent is None:
+			'''if poseBone.parent is None:
 				bone_matrix = poseBone.matrix
 			else:
 				parent_matrix = poseBone.parent.matrix
 				bone_matrix = poseBone.matrix
-				bone_matrix = parent_matrix.inverted() * bone_matrix
+				bone_matrix = parent_matrix.inverted() * bone_matrix'''
+			#bone_matrix = poseBone.matrix
 			#bone_matrix = armature_matrix * poseBone.matrix
+			#bone_matrix = v.getBoneLocalMatrix(poseBone, false)
+			bone_matrix = v.getBoneLocalMatrix(poseBone) # maybe temp; bake orientation as relative to armature, as Unity API wants it in the end
 			pos, rotQ, scl = bone_matrix.decompose()
 
 			'''pos = poseBone.location
@@ -631,6 +668,14 @@ def GetActionStr(obj, armature, action, options):
 
 			#pos, rotQ, scl = poseBone.matrix.decompose()
 			#__import__("code").interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
+
+			# for some reason, the "rest" or "base" rotation of a bone is [-.5 0 0 0] (relative to the world) (i.e. rotated forward 90 degrees--with the tail/tip/non-core-end having a higher y value)
+			# we're going to correct that, so that the stored rotation is the rotation to get from the world-rotation (identity/none/[0 0 0 1]) to the bone rotation
+			#rotQ = mathutils.Quaternion([.707107, .707107, 0, 0]).inverted() * rotQ # w, x, y, z
+			'''rotQ = mathutils.Quaternion([.707107, .707107, 0, 0]).rotation_difference(rotQ)
+			yOld = rotQ.y
+			rotQ.y = -rotQ.z
+			rotQ.z = yOld'''
 
 			rotQ_degrees = v.Quaternion_toDegrees(rotQ)
 			rotEuler = v.Vector_toDegrees(rotQ_degrees.to_euler("XYZ"))
@@ -706,6 +751,8 @@ def GetActionStr(obj, armature, action, options):
 	parents = []
 	bone_index = 0
 	for boneIndex, poseBone in enumerate(obj.pose.bones):
+		if len(keys[boneIndex]) == 0:
+			continue
 		keys_string = "\n\t".join(keys[boneIndex])
 		parent = poseBone.name + ':{^}\n\t%s' % (keys_string)
 		parents.append(parent)
