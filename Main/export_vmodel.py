@@ -110,14 +110,20 @@ def hexcolor(c):
 # objects
 # ==========
 
+meshFirstObjectNames = {}
+meshStrings = {}
 def generate_objects(data, options):
+	meshFirstObjectNames = {}
+	meshStrings = {}
+
 	chunks = []
 	for obj in data["objects"]:
 		if obj.parent == nothing and obj.VModel_export: # root objects
-			chunks.append(obj.name + ":" + ConvertObjectToVDF(obj, data, options))
+			chunks.append(obj.name + ":" + GetObjectStr(obj, data, options))
 	return "{^}\n" + v.indentLines("\n".join(chunks))
 
-def ConvertObjectToVDF(obj, data, options):
+#def ConvertObjectToVDF(obj, data, options):
+def GetObjectStr(obj, data, options):
 	object_string = "{^}"
 
 	'''if options.option_flip_yz:
@@ -145,7 +151,12 @@ def ConvertObjectToVDF(obj, data, options):
 
 	if obj.type == "MESH":
 		vdebug.StartSection("Mesh")
-		object_string += "\nmesh:" + GetMeshStr(obj, data["scene"], options)
+		if obj.data not in meshFirstObjectNames:
+			meshFirstObjectNames[obj.data] = obj.name
+			meshStrings[obj.data] = GetMeshStr(obj, data["scene"], options)
+			object_string += "\nmesh:" + meshStrings[obj.data]
+		else:
+			object_string += "\nmesh:\"" + meshFirstObjectNames[obj.data] + "\""
 		vdebug.EndSection("Mesh")
 	elif obj.type == "ARMATURE":
 		vdebug.StartSection("Armature")
@@ -163,7 +174,7 @@ def ConvertObjectToVDF(obj, data, options):
 	children_string = "{^}"
 	for child in obj.children:
 		if child.VModel_export:
-			children_string += "\n" + child.name + ":" + ConvertObjectToVDF(child, data, options)
+			children_string += "\n" + child.name + ":" + GetObjectStr(child, data, options)
 	if len(children_string) > len("{^}"):
 		object_string += "\nchildren:" + v.indentLines(children_string, 1, false)
 
@@ -691,7 +702,6 @@ def GetActionStr(obj, armature, action, options):
 			#isKeyframe = true
 
 			if isKeyframe:
-
 				vdebug.StartSection()
 
 				'''pchange = has_keyframe_at(bonePropertyChannels["location"], frame)
