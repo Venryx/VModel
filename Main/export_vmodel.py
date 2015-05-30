@@ -33,6 +33,7 @@ import os.path
 import math
 import operator
 import random
+import re
 
 import bmesh
 
@@ -450,7 +451,8 @@ def GetMaterialsStr(obj, mesh):
 		if material.node_tree != nothing: # todo: make sure this is correct
 			for node in material.node_tree.nodes:
 				if node.type == "TEX_IMAGE": # for now, we just assume that the first image-texture node holds the texture actually used
-					result += " texture:\"" + node.image.name + "\""
+					textureBaseName = re.sub("[.0-9]+$", "", node.image.name)
+					result += " texture:\"" + textureBaseName + "\""
 		result += "}"
 
 	result = v.indentLines(result, 1, false)
