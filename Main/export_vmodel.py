@@ -171,6 +171,9 @@ def GetObjectStr(obj, data, options):
 		object_string += "\nanimations:" + GetAnimationsStr(obj, obj.data, actions, options)
 		vdebug.EndSection("Animations")
 
+	if obj.VModel_anchorToTerrain:
+		object_string += "\nanchorToTerrain:true"
+
 	children_string = "{^}"
 	for child in obj.children:
 		if child.VModel_export:

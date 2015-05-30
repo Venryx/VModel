@@ -61,10 +61,10 @@ from bpy_extras.io_utils import ExportHelper, ImportHelper
 # VModel object panel
 # ==========
 
-bpy.types.Object.VModel_export = bpy.props.BoolProperty(default = True)
+bpy.types.Object.VModel_export = bpy.props.BoolProperty(default = true)
+bpy.types.Object.VModel_anchorToTerrain = bpy.props.BoolProperty(default = false)
 
 class OBJECT_PT_hello(bpy.types.Panel):
-
 	bl_label = "VModel"
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
@@ -79,6 +79,9 @@ class OBJECT_PT_hello(bpy.types.Panel):
 
 		row = layout.row()
 		row.prop(obj, "VModel_export", text="Export object")
+
+		row = layout.row()
+		row.prop(obj, "VModel_anchorToTerrain", text="Anchor to terrain")
 
 # VModel material panel
 # ==========
