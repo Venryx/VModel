@@ -1,3 +1,6 @@
+from io_scene_vmodel import *
+from io_scene_vmodel.globals import *
+
 import re
 import math
 from mathutils import *
@@ -7,72 +10,16 @@ from mathutils import *
 
 #__import__("code").interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
 
-# constants
-# ==========
-
-nothing = None
-false = False
-true = True
-
-# linq
-# ==========
-
-def any(collection, matchFunc):
-	return len(list(filter(matchFunc, collection))) > 0
-
-# custom - console helpers
+# console helpers
 # ==========
 
 def GetObjByName(name):
 	for obj in data["objects"]:
 		if obj.name == name:
 			return obj
-	return nothing
+	return null
 
-# custom
-# ==========
-
-def Log(message):
-	print(message)
-
-s_defaultNumberTruncate = -1
-
-def s(obj, numberTruncate = nothing):
-	numberTruncate = numberTruncate if numberTruncate != nothing else s_defaultNumberTruncate
-	#if numberTruncate != -1:
-	#	numberTruncate += 1 # todo: make sure this is correct
-
-	result = ""
-
-	#if obj is int or obj is float: #or obj is long: #or obj is complex:
-	if type(obj) == int or type(obj) == float:
-		if numberTruncate != -1:
-			result = ("{:." + str(numberTruncate) + "f}").format(float("%g" % obj)) #obj)
-		else:
-			result = "%g" % obj #str(obj)
-
-		if result.find(".") != -1:
-			result = result.rstrip("0")
-		if result.endswith("."):
-			result = result[0:-1]
-
-		if result.startswith("0."):
-			result = result[1:]
-		if result.startswith("-0."):
-			result = "-" + result[2:]
-	
-		if result == "-0":
-			result = "0"
-		if result == ".0" or result == "-.0":
-			result = "0"
-	elif type(obj) == Vector: #elif obj is Vector:
-		result = "[" + s(obj.x) + " " + s(obj.y) + " " + s(obj.z) + "]"
-	elif type(obj) == Quaternion:
-		result = "[" + s(obj.x) + " " + s(obj.y) + " " + s(obj.z) + " " + s(obj.w) + "]"
-	else:
-		result = str(obj)
-	
-	return result
+# general
 
 def indentLines(str, count = 1, indentFirstLine = true):
 	for i in range(0, count):
@@ -253,19 +200,19 @@ def bottom(vertices):
 # ==========
 
 def getBoneLocalMatrix(poseBoneOrBone, includeBaseMatrix = true, includePoseMatrix = true): # accepts either a pose-bone or a bone
-	poseBone = poseBoneOrBone if type(poseBoneOrBone).__name__ == "PoseBone" else nothing
-	bone = poseBone.bone if poseBone is not nothing else poseBoneOrBone
+	poseBone = poseBoneOrBone if type(poseBoneOrBone).__name__ == "PoseBone" else null
+	bone = poseBone.bone if poseBone is not null else poseBoneOrBone
 
 	# get local matrix, using Blender's system
 	# ----------
 	
-	if poseBone is nothing or not includePoseMatrix:
-		if bone.parent is nothing:
+	if poseBone is null or not includePoseMatrix:
+		if bone.parent is null:
 			localMatrix = bone.matrix_local
 		else:
 			localMatrix = bone.parent.matrix_local.inverted() * bone.matrix_local
 	else:
-		if bone.parent is nothing:
+		if bone.parent is null:
 			if not includeBaseMatrix:
 				localMatrix = bone.matrix_local.inverted() * poseBone.matrix
 			else:
@@ -280,7 +227,7 @@ def getBoneLocalMatrix(poseBoneOrBone, includeBaseMatrix = true, includePoseMatr
 	# fix the local matrix, to use the more sensible resting position/orientation (where the rest rotation has the tail-end toward z+, rather than y+)
 	# ----------
 
-	#if bone.parent is nothing:
+	#if bone.parent is null:
 	#	localMatrix = fixMatrixForRootBone(localMatrix)
 
 	return localMatrix

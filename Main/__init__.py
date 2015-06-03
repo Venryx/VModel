@@ -1,33 +1,14 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
-# ################################################################
-# Init
-# ################################################################
-
-# todo: make this not needed, then remove it
+#__all__ = ["v", "vdebug", "globals", "export_vmodel"]
 import io_scene_vmodel.v
 import io_scene_vmodel.vdebug
+import io_scene_vmodel.globals
 import io_scene_vmodel.export_vmodel
 
+# init
+# ==========
+
 from io_scene_vmodel import *
-from io_scene_vmodel.v import nothing, false, true
-from io_scene_vmodel.v import Log, s
+from io_scene_vmodel.globals import *
 
 bl_info = {
 	"name": "VModel format",
@@ -42,16 +23,16 @@ bl_info = {
 	"category": "Import-Export"
 }
 
-# To support reload properly, try to access a package var,
-# if it's there, reload everything
+# To support reload properly, try to access a package var; if it's there, reload everything
 import bpy
-
 if "bpy" in locals():
 	import imp
 	if "v" in locals():
 		imp.reload(v)
 	if "vdebug" in locals():
 		imp.reload(vdebug)
+	if "globals" in locals():
+		imp.reload(globals)
 	if "export_vmodel" in locals():
 		imp.reload(export_vmodel)
 
@@ -199,9 +180,9 @@ def restore_settings_export(context, properties, self):
 
 		"align_model": "None",
 
-		"option_flip_yz": false,
 		"rotationDataType": "Euler Angle",
-		"maxDecimalPlaces": 7,
+		"maxDecimalPlaces": 5,
+		"writeDefaultValues": false,
 
 		"option_animation_morph": false,
 		"option_animation_skeletal": true,
@@ -246,10 +227,10 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 	align_types = [("None","None","None"), ("Center","Center","Center"), ("Bottom","Bottom","Bottom"), ("Top","Top","Top")]
 	align_model = EnumProperty(name = "Align model", description = "Align model", items = align_types, default = "None")
 
-	option_flip_yz = BoolProperty(name = "Flip YZ", description = "Flip YZ", default = true)
 	rotationDataTypes = [("Euler Angle","Euler Angle","Euler Angle"), ("Quaternion","Quaternion","Quaternion")]
 	rotationDataType = EnumProperty(name = "Rotation data-type/structure", description = "How to store object rotations (euler angle is simpler, quaternion avoids gimbal lock)", items = rotationDataTypes, default = "Euler Angle")
-	maxDecimalPlaces = IntProperty(name = "Max decimal places", description = "Round serialized numbers to have at most x decimal-places (-1 for no rounding)", min = -1, max = 30, soft_min = -1, soft_max = 30, default = 7)
+	maxDecimalPlaces = IntProperty(name = "Max decimal places", description = "Round serialized numbers to have at most x decimal-places (-1 for no rounding)", min = -1, max = 30, soft_min = -1, soft_max = 30, default = 5)
+	writeDefaultValues = BoolProperty(name = "Write default values", description = "Write values even if they're the defaults. (e.g. \"scale:[1 1 1]\")", default = false)
 
 	option_animation_morph = BoolProperty(name = "Morph animation", description = "Export animation (morphs)", default = false)
 	option_animation_skeletal = BoolProperty(name = "Skeletal animation", description = "Export animation (skeletal)", default = false)
@@ -274,9 +255,10 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 		filepath = self.filepath
 
 		import io_scene_vmodel.export_vmodel
-		v.s_defaultNumberTruncate = self.maxDecimalPlaces
+		#global s_defaultNumberTruncate
+		globals.s_defaultNumberTruncate = self.maxDecimalPlaces
 		return io_scene_vmodel.export_vmodel.save(self, context, self.properties)
-		v.s_defaultNumberTruncate = self.maxDecimalPlaces = -1
+		globals.s_defaultNumberTruncate = -1
 
 	def draw(self, context):
 		layout = self.layout
@@ -321,11 +303,12 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 		row = layout.row()
 		row.prop(self.properties, "align_model")
 		row = layout.row()
-		row.prop(self.properties, "option_flip_yz")
-		row = layout.row()
 		row.prop(self.properties, "rotationDataType")
 		row = layout.row()
 		row.prop(self.properties, "maxDecimalPlaces")
+		layout.separator()
+		row = layout.row()
+		row.prop(self.properties, "writeDefaultValues")
 		layout.separator()
 
 		row = layout.row()

@@ -21,8 +21,7 @@ Blender exporter for VModel format (.vmodel vdf files).
 """
 
 from io_scene_vmodel import *
-from io_scene_vmodel.v import nothing, false, true
-from io_scene_vmodel.v import Log, s
+from io_scene_vmodel.globals import *
 
 import bpy
 import mathutils
@@ -31,6 +30,7 @@ import shutil
 import os
 import os.path
 import math
+from math import fabs
 import operator
 import random
 import re
@@ -74,9 +74,7 @@ def save(operator, context, options):
 
 def generate_vec2(vec):
 	return "[" + s(vec[0]) + " " + s(vec[1]) + "]"
-def generate_vec3(vec, option_flip_yz = false):
-	if option_flip_yz:
-		return "[" + s(vec[0]) + " " + s(vec[2]) + " " + s(vec[1]) + "]"
+def generate_vec3(vec):
 	return "[" + s(vec[0]) + " " + s(vec[1]) + " " + s(vec[2]) + "]"
 def generate_vec4(vec):
 	return "[" + s(vec[0]) + " " + s(vec[1]) + " " + s(vec[2]) + " " + s(vec[3]) + "]"
@@ -114,12 +112,13 @@ def hexcolor(c):
 meshFirstObjectNames = {}
 meshStrings = {}
 def generate_objects(data, options):
+	global meshFirstObjectNames, meshStrings
 	meshFirstObjectNames = {}
 	meshStrings = {}
 
 	chunks = []
 	for obj in data["objects"]:
-		if obj.parent == nothing and obj.VModel_export: # root objects
+		if obj.parent == null and obj.VModel_export: # root objects
 			chunks.append(obj.name + ":" + GetObjectStr(obj, data, options))
 	return "{^}\n" + v.indentLines("\n".join(chunks))
 
@@ -127,17 +126,7 @@ def generate_objects(data, options):
 def GetObjectStr(obj, data, options):
 	object_string = "{^}"
 
-	'''if options.option_flip_yz:
-		ROTATE_X_PI2 = mathutils.Quaternion((1.0, 0.0, 0.0), math.radians(-90.0)).to_matrix().to_4x4()
-		matrix_world = ROTATE_X_PI2 * obj.matrix_world
-	else:
-		matrix_world = obj.matrix_world
-	position, rotationQ, scale = matrix_world.decompose()'''
-	if options.option_flip_yz:
-		ROTATE_X_PI2 = mathutils.Quaternion((1.0, 0.0, 0.0), math.radians(-90.0)).to_matrix().to_4x4()
-		matrix_local = ROTATE_X_PI2 * obj.matrix_local
-	else:
-		matrix_local = obj.matrix_local
+	matrix_local = obj.matrix_local #obj.matrix_world
 	position, rotationQ, scale = matrix_local.decompose()
 	'''position = obj.localPosition
 	rotationQ = obj.localRotation
@@ -148,7 +137,8 @@ def GetObjectStr(obj, data, options):
 
 	object_string += "\nposition:" + generate_vec3(position)
 	object_string += "\nrotation:" + (generate_vec3(rotation) if options.rotationDataType == "Euler Angle" else generate_quat(rotationQ))
-	object_string += "\nscale:" + generate_vec3(scale)
+	#object_string += "\nscale:" + generate_vec3(scale)
+	object_string += "\nscale:" + s(scale) if options.writeDefaultValues or fabs(scale.x - 1) > .001 or fabs(scale.y - 1) > .001 or fabs(scale.z - 1) > .001 else ""
 
 	if obj.type == "MESH":
 		vdebug.StartSection("Mesh")
@@ -206,15 +196,7 @@ def extract_mesh(obj, scene, options):
 
 		# preserve original name
 		mesh.name = obj.name
-
-		'''if true: #false: #export_single_model:
-			if options.option_flip_yz:
-				# that's what Blender's native export_obj.py does to flip YZ
-				X_ROT = mathutils.Matrix.Rotation(-math.pi / 2, 4, 'X')
-				mesh.transform(X_ROT * obj.matrix_world)
-			else:
-				mesh.transform(obj.matrix_world)'''
-					
+	
 		mesh.update(calc_tessface=True)
 
 		mesh.calc_normals()
@@ -222,7 +204,7 @@ def extract_mesh(obj, scene, options):
 		#mesh.transform(mathutils.Matrix.Scale(option_scale, 4))
 		return mesh
 
-	return nothing
+	return null
 
 def GetMeshStr(obj, scene, options):
 	mesh = extract_mesh(obj, scene, options)
@@ -337,7 +319,7 @@ def GetVertexesStr(obj, mesh, vertices, options):
 		result += " normal:[" + s(vertex.normal[0]) + " " + s(vertex.normal[1]) + " " + s(vertex.normal[2]) + "]"
 
 		uvsStr = ""
-		if options.option_uv_coords and len(mesh.uv_textures) > 0 and (not mesh.uv_textures.active == nothing):
+		if options.option_uv_coords and len(mesh.uv_textures) > 0 and (not mesh.uv_textures.active == null):
 			''' # this approach took 12.79 seconds
 			for faceIndex, face in enumerate(v.get_faces(mesh)):
 				for layerIndex, layer in enumerate(mesh.tessface_uv_textures): # for now, we assume there's only one
@@ -352,7 +334,7 @@ def GetVertexesStr(obj, mesh, vertices, options):
 			for layerIndex, layerInfo in sorted(vertexInfo.items()):
 				layerFaceUVValues = []
 				for faceIndex, faceInfo in sorted(layerInfo.items()):
-					if not v.any(layerFaceUVValues, lambda a:a["uvPoint"][0] == faceInfo["uvPoint"][0] and a["uvPoint"][1] == faceInfo["uvPoint"][1]):
+					if not Any(layerFaceUVValues, lambda a:a["uvPoint"][0] == faceInfo["uvPoint"][0] and a["uvPoint"][1] == faceInfo["uvPoint"][1]):
 						layerFaceUVValues.append(faceInfo)
 				if len(layerFaceUVValues) == 1:
 					uvsStr += " uv" + (s(layerIndex + 1) if layerIndex > 0 else "") + ":[" + s(faceInfo["uvPoint"][0]) + " " + s(faceInfo["uvPoint"][1]) + "]"
@@ -361,7 +343,7 @@ def GetVertexesStr(obj, mesh, vertices, options):
 						uvsStr += " uv" + (s(layerIndex + 1) if layerIndex > 0 else "") + "_face" + s(faceIndex) + ":[" + s(faceInfo["uvPoint"][0]) + " " + s(faceInfo["uvPoint"][1]) + "]"
 		result += uvsStr
 
-		if obj.find_armature() != nothing:
+		if obj.find_armature() != null:
 			result += " boneWeights:" + GetBoneWeightsStr(obj, mesh, vertex)
 			
 		result += "}"
@@ -448,7 +430,7 @@ def GetMaterialsStr(obj, mesh):
 	result = "[^]"
 	for materialIndex, material in enumerate(obj.data.materials):
 		result += "\n{diffuseColor:\"" + ColorToHexStr(material.diffuse_color) + "\""
-		if material.node_tree != nothing: # todo: make sure this is correct
+		if material.node_tree != null: # todo: make sure this is correct
 			for node in material.node_tree.nodes:
 				if node.type == "TEX_IMAGE": # for now, we just assume that the first image-texture node holds the texture actually used
 					textureBaseName = re.sub("[.0-9]+$", "", node.image.name)
@@ -491,7 +473,7 @@ def GetArmatureStr(obj, armature, options):
 	bones_string = "{^}"
 	for poseBone in obj.pose.bones: #armature.bones
 		bone = poseBone.bone
-		if obj.data.edit_bones[bone.name].parent == nothing:
+		if obj.data.edit_bones[bone.name].parent == null:
 			bones_string += "\n" + v.indentLines(GetBoneStr(obj, armature, bone, options))
 			#bones_string += "\n" + v.indentLines(GetBoneStr(obj, armature, poseBone, options))
 	result += "\n" + v.indentLines("bones:" + bones_string)
@@ -510,20 +492,20 @@ def GetBoneStr(obj, armature, bone, options):
 	armature_matrix = obj.matrix_world
 	#poseBones = obj.pose.bones #armature.bones
 
-	'''if bone.parent is nothing:
+	'''if bone.parent is null:
 		bone_matrix = armature_matrix * bone.matrix_local
 	else:
 		parent_matrix = armature_matrix * bone.parent.matrix_local
 		bone_matrix = armature_matrix * bone.matrix_local
 		bone_matrix = parent_matrix.inverted() * bone_matrix'''
-	'''if bone.parent is nothing:
+	'''if bone.parent is null:
 		bone_matrix = v.getBoneLocalMatrix(bone) #bone.matrix_local
 	else:
 		parent_matrix = v.getBoneLocalMatrix(bone.parent) #bone.parent.matrix_local
 		bone_matrix = v.getBoneLocalMatrix(bone) #bone.matrix_local
 		bone_matrix = parent_matrix.inverted() * bone_matrix'''
 	bone_matrix = v.getBoneLocalMatrix(bone, true, false) #poseBone)
-	if bone.parent == nothing:
+	if bone.parent == null:
 		bone_matrix = v.fixMatrixForRootBone(bone_matrix)
 	pos, rotQ, scl = bone_matrix.decompose()
 
@@ -539,7 +521,7 @@ def GetBoneStr(obj, armature, bone, options):
 
 	# at-rest bones, even if they have 'rotation', don't actually apply their rotation to their descendent bones (i.e. the descendents local-position is actually just the position relative to the armature)
 	# so undo applying of parent-bone matrix to the current bone's location
-	# pos = bone.matrix_local.decompose()[0] if bone.parent is nothing else bone.matrix_local.decompose()[0] - bone.parent.matrix_local.decompose()[0]
+	# pos = bone.matrix_local.decompose()[0] if bone.parent is null else bone.matrix_local.decompose()[0] - bone.parent.matrix_local.decompose()[0]
 
 	# for some reason, the "rest" or "base" rotation of a bone is [-.5 0 0 0] (relative to the world) (i.e. rotated forward 90 degrees--with the tail/tip/non-core-end having a higher y value)
 	# we're going to correct that, so that the stored rotation is the rotation to get from the world-rotation (identity/none/[0 0 0 1]) to the bone rotation
@@ -552,25 +534,17 @@ def GetBoneStr(obj, armature, bone, options):
 	rotQ_degrees = v.Quaternion_toDegrees(rotQ)
 	rotationEuler = v.Vector_toDegrees(rotQ_degrees.to_euler("XYZ"))
 
-	#parentNameStr = ("\"" + obj.data.edit_bones[bone.name].parent.name + "\"") if obj.data.edit_bones[bone.name].parent != nothing else "null"
-	positionStr = ""
-	rotationStr = ""
-	scaleStr = ""
-	if options.option_flip_yz:
-		positionStr = "[" + s(pos.x) + " " + s(pos.z) + " " + s(-pos.y) + "]"
-		rotationStr = ("[" + s(rotationEuler.x) + " " + s(rotationEuler.z) + " " + s(-rotationEuler.y) + "]") if options.rotationDataType == "Euler Angle" else ("[" + s(rotQ.x) + " " + s(rotQ.z) + " " + s(-rotQ.y) + " " + s(rotQ.w) + "]")
-		scaleStr = "[" + s(scl.x) + " " + s(scl.z) + " " + s(scl.y) + "]"
-	else:
-		positionStr = s(pos)
-		rotationStr = s(rotationEuler) if options.rotationDataType == "Euler Angle" else s(rotQ)
-		scaleStr = s(scl)
+	#parentNameStr = ("\"" + obj.data.edit_bones[bone.name].parent.name + "\"") if obj.data.edit_bones[bone.name].parent != null else "null"
+	
+	positionStr = s(pos)
+	rotationStr = s(rotationEuler) if options.rotationDataType == "Euler Angle" else s(rotQ)
 
 	childrenStr = ""
 	if len(obj.data.edit_bones[bone.name].children) > 0:
 		for childEditBone in obj.data.edit_bones[bone.name].children:
 			childrenStr += "\n" + v.indentLines(GetBoneStr(obj, armature, next(a for a in armature.bones if a.name == childEditBone.name), options))
 
-	result = bone.name + ":{position:" + positionStr + " rotation:" + rotationStr + " scale:" + scaleStr + (" children:{^}" if len(childrenStr) > 0 else "") + "}" + childrenStr
+	result = bone.name + ":{position:" + positionStr + " rotation:" + rotationStr + (" scale:" + s(scl) if options.writeDefaultValues or fabs(scl.x - 1) > .001 or fabs(scl.y - 1) > .001 or fabs(scl.z - 1) > .001 else "") + (" children:{^}" if len(childrenStr) > 0 else "") + "}" + childrenStr
 	#result = bone.name + ":{position:" + positionStr + " scale:" + scaleStr + (" children:{^}" if len(childrenStr) > 0 else "") + "}" + childrenStr
 
 	return result
@@ -608,7 +582,7 @@ def GetActionStr(obj, armature, action, options):
 	bpy.context.area.type = "DOPESHEET_EDITOR"
 	oldSpaceDataMode = bpy.context.space_data.mode
 	bpy.context.space_data.mode = "ACTION"
-	oldActiveAction = bpy.context.area.spaces.active.action #if "action" in bpy.context.area.spaces.active else nothing
+	oldActiveAction = bpy.context.area.spaces.active.action #if "action" in bpy.context.area.spaces.active else null
 	bpy.context.area.spaces.active.action = action
 	oldFrame = bpy.data.scenes[0].frame_current
 
@@ -716,45 +690,30 @@ def GetActionStr(obj, armature, action, options):
 				rchange = true
 				schange = true
 
-				if options.option_flip_yz:
-					px, py, pz = pos.x, pos.z, -pos.y
-					rotEuler = [rotEuler[0], rotEuler[2], -rotEuler[1]]
-					rx, ry, rz, rw = rotQ.x, rotQ.z, -rotQ.y, rotQ.w
-					sx, sy, sz = scl.x, scl.z, scl.y
-				else:
-					px, py, pz = pos.x, pos.y, pos.z
-					rx, ry, rz, rw = rotQ.x, rotQ.y, rotQ.z, rotQ.w
-					sx, sy, sz = scl.x, scl.y, scl.z
+				px, py, pz = pos.x, pos.y, pos.z
+				rx, ry, rz, rw = rotQ.x, rotQ.y, rotQ.z, rotQ.w
 
 				posStr = "[" + s(px) + " " + s(py) + " " + s(pz) + "]"
 				rotStr = generate_vec3(rotEuler) if options.rotationDataType == "Euler Angle" else ("[" + s(rx) + " " + s(ry) + " " + s(rz) + " " + s(rw) + "]")
-				scaleStr = "[" + s(sx) + " " + s(sy) + " " + s(sz) + "]"
+				scaleStr = s(scl) if options.writeDefaultValues or fabs(scl.x - 1) > .001 or fabs(scl.y - 1) > .001 or fabs(scl.z - 1) > .001 else null
 
 				vdebug.EndSection("4")
 				vdebug.StartSection()
 
-				# START-FRAME: needs position, rotation, and scale attributes (required frame)
-				if frame == start_frame:
-					keyframe = s(time) + ':{position:' + posStr + ' rotation:' + rotStr + ' scale:' + scaleStr + '}'
+				# start-frame and end-frame: need position, rotation, and scale attributes (required frames)
+				if frame == start_frame or frame == end_frame:
+					keyframe = s(time) + ":{position:" + posStr + " rotation:" + rotStr + (" scale:" + scaleStr if scaleStr != null else "") + "}"
 					keys[boneIndex].append(keyframe)
-
-				# END-FRAME: needs position, rotation, and scale attributes with animation length
-				# (required frame)
-				elif frame == end_frame:
-					keyframe = s(time) + ':{position:' + posStr + ' rotation:' + rotStr + ' scale:' + scaleStr + '}'
-					keys[boneIndex].append(keyframe)
-
-				# MIDDLE-FRAME: needs only one of the attributes, can be an empty frame
-				# (optional frame)
+				# middle-frame: needs only one of the attributes; can be an empty frame (optional frame)
 				elif pchange == True or rchange == true:
 					keyframe = s(time) + ':{'
 					if pchange == true:
-						keyframe = keyframe + 'position:' + posStr
+						keyframe += "position:" + posStr
 					if rchange == true:
-						keyframe = keyframe + ' rotation:' + rotStr
-					if schange == true:
-						keyframe = keyframe + ' scale:' + scaleStr
-					keyframe = keyframe + '}'
+						keyframe += " rotation:" + rotStr
+					if schange == true and scaleStr != null:
+						keyframe += " scale:" + scaleStr
+					keyframe += '}'
 
 					keys[boneIndex].append(keyframe)
 
@@ -842,8 +801,8 @@ def GetBoneChannels(action, bone, channelType):
 
 	vdebug.StartSection()
 
-	#next((a for a in action.groups if a.name == bone.name), nothing) != nothing:
-	if len(action.groups) > 0 and v.any(action.groups, lambda a:a.name == bone.name): # variant 1: groups:[{name:"Bone1", channels:[{data_path:"location"}]}]
+	#next((a for a in action.groups if a.name == bone.name), null) != null:
+	if len(action.groups) > 0 and Any(action.groups, lambda a:a.name == bone.name): # variant 1: groups:[{name:"Bone1", channels:[{data_path:"location"}]}]
 		for groupIndex, group in action.groups.items(): # find the channel group for the given bone
 			if group.name == bone.name:
 				for channel in group.channels: # get all desired channels in that group
@@ -870,11 +829,11 @@ def find_keyframe_at(channel, frame):
 	for keyframe in channel.keyframe_points:
 		if keyframe.co[0] == frame:
 			return keyframe
-	return nothing
+	return null
 
 def has_keyframe_at(channels, frame):
 	for channel in channels:
-		if not find_keyframe_at(channel, frame) is nothing:
+		if not find_keyframe_at(channel, frame) is null:
 			return true
 	return false
 

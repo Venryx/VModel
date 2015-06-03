@@ -1,6 +1,5 @@
 from io_scene_vmodel import *
-from io_scene_vmodel.v import nothing, false, true
-from io_scene_vmodel.v import Log, s
+from io_scene_vmodel.globals import *
 
 import time
 
@@ -20,9 +19,9 @@ public static void MidBlock(string name)
 	StartBlock();
 }
 public static void EndBlock(string name) { Log("Block_" + name + ") " + (stopwatch.ElapsedTicks / 10000f)); } // ElapsedMilliseconds
-public static void Block(string name = nothing)
+public static void Block(string name = null)
 {
-	if (name != nothing)
+	if (name != null)
 		MidBlock(name);
 	else
 		StartBlock();
@@ -47,8 +46,8 @@ def EndSection(name, mark = false):
 	sectionTotals[name] += time.clock() - sectionStartTime
 	if mark:
 		MarkSection(name)
-def Section(name = nothing, mark = false):
-	if name != nothing:
+def Section(name = null, mark = false):
+	if name != null:
 		MidSection(name, mark) # or end section; mid-section method works for either (since the next start-section will just ignore the hanging-section timer data)
 	else:
 		StartSection()
@@ -58,8 +57,8 @@ sectionStartTimes_unnamed = []
 sectionStartTimes = {}
 sectionAddCounts = {}
 sectionTotals = {}
-def StartSection(name = nothing):
-	if name is nothing:
+def StartSection(name = null):
+	if name is null:
 		sectionStartTimes_unnamed.append(time.clock())
 	else:
 		sectionStartTimes[name] = time.clock()
