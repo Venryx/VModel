@@ -10,6 +10,9 @@ import io_scene_vmodel.export_vmodel
 from io_scene_vmodel import *
 from io_scene_vmodel.globals import *
 
+from math import *
+#import math
+
 bl_info = {
 	"name": "VModel format",
 	"author": "Venryx; source (ThreeJS) exporter authors: mrdoob, kikko, alteredq, remoe, pxf, n3tfr34k, crobi",
@@ -23,9 +26,12 @@ bl_info = {
 	"category": "Import-Export"
 }
 
-# To support reload properly, try to access a package var; if it's there, reload everything
+# to support reload properly, try to access a package var; if it's there, reload everything
 import bpy
 if "bpy" in locals():
+	#unregister()
+	#register()
+
 	import imp
 	if "v" in locals():
 		imp.reload(v)
@@ -38,6 +44,67 @@ if "bpy" in locals():
 
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper, ImportHelper
+
+# ShowSpaceTaken operator
+# ==========
+
+BLOCK_SIZE = 4
+
+class ShowSpaceTakenOperator(bpy.types.Operator):
+	"""Visualizes the dimensions of the space taken by the selected object, in Biome Defense terrain blocks."""
+	bl_idname = "view3d.show_space_taken"
+	bl_label = "Show Space Taken"
+	@classmethod
+	def poll(cls, context): # is called to determine whether the operator can be invoked
+		return context.active_object is not None
+	def execute(self, context): # invokes the operator and returns a state
+		if "SpaceTaken" in bpy.data.objects:
+			#v.SaveSelection()
+			bpy.ops.view3d.hide_space_taken() #HideSpaceTakenOperator(null).execute()
+			#v.LoadSelection()
+
+		blocks = v.CreateObject_Empty("SpaceTaken")
+		#spaceTaken = bpy.context.scene.objects.active.GetBounds()
+		spaceTaken = Box.Null
+		#for obj in [a for a in bpy.data.objects if a.select][0].GetDescendents(): #bpy.data.objects
+		for obj in bpy.context.scene.objects.active.GetDescendents():
+			if obj.VModel_export:
+				spaceTaken = spaceTaken.Encapsulate(obj.GetBounds())
+
+		for obj in bpy.context.scene.objects:
+			obj.select = false
+
+		#Log("A:" + s(floor(spaceTaken.position.x) - (floor(spaceTaken.position.x) % BLOCK_SIZE)) + ";" + s(floor(spaceTaken.GetMax().x) - (floor(spaceTaken.GetMax().x) % BLOCK_SIZE)))
+		for x in range(floor(spaceTaken.position.x) - (floor(spaceTaken.position.x) % BLOCK_SIZE), (floor(spaceTaken.GetMax().x) - (floor(spaceTaken.GetMax().x) % BLOCK_SIZE)) + BLOCK_SIZE, BLOCK_SIZE):
+			for y in range(floor(spaceTaken.position.y) - (floor(spaceTaken.position.y) % BLOCK_SIZE), (floor(spaceTaken.GetMax().y) - (floor(spaceTaken.GetMax().y) % BLOCK_SIZE)) + BLOCK_SIZE, BLOCK_SIZE):
+				for z in range(floor(spaceTaken.position.z) - (floor(spaceTaken.position.z) % BLOCK_SIZE), (floor(spaceTaken.GetMax().z) - (floor(spaceTaken.GetMax().z) % BLOCK_SIZE)) + BLOCK_SIZE, BLOCK_SIZE):
+					#block = v.CreateObject_Cube("SpaceTaken", (x, y, z), (0, 0, 0, 1), (BLOCK_SIZE, BLOCK_SIZE, .1))
+					#block = v.CreateObject_Empty("Block", (x, y, z), (0, 0, 0, 1), (BLOCK_SIZE, BLOCK_SIZE, .1), "CUBE")
+					block = v.CreateObject_Empty("Block", Vector((x, y, z)) + (Vector((BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)) / 2), Vector((0, 0, 0, 1)), Vector((BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)) / 2, "CUBE")
+					block.select = true
+					block.parent = blocks
+		return {'FINISHED'}
+
+# HideSpaceTaken operator
+# ==========
+
+class HideSpaceTakenOperator(bpy.types.Operator):
+	bl_idname = "view3d.hide_space_taken"
+	bl_label = "Hide Space Taken"
+	@classmethod
+	def poll(cls, context):
+		return context.active_object is not None
+	def execute(self, context):
+		if "SpaceTaken" not in bpy.data.objects:
+			return {'FINISHED'}
+		blocks = bpy.data.objects["SpaceTaken"]
+		'''for ob in bpy.context.scene.objects:
+			ob.select = false
+		blocks.select = true
+		bpy.ops.object.delete()'''
+		v.DeleteObject(blocks)
+
+		return {'FINISHED'}
 
 # VModel object panel
 # ==========
@@ -63,6 +130,10 @@ class OBJECT_PT_hello(bpy.types.Panel):
 
 		row = layout.row()
 		row.prop(obj, "VModel_anchorToTerrain", text="Anchor to terrain")
+
+		row = layout.row()
+		row.operator("view3d.show_space_taken", text="Show space taken")
+		row.operator("view3d.hide_space_taken", text="Hide space taken")
 
 # VModel material panel
 # ==========
@@ -328,10 +399,9 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 
 		layout.separator()
 
+# registration stuff
+# ==========
 
-# ################################################################
-# Common
-# ################################################################
 def menu_func_export(self, context):
 	default_path = bpy.data.filepath.replace(".blend", ".vmodel")
 	self.layout.operator(ExportVModel.bl_idname, text="VModel (.vmodel)").filepath = default_path
@@ -340,9 +410,16 @@ def register():
 	bpy.utils.register_module(__name__)
 	bpy.types.INFO_MT_file_export.append(menu_func_export)
 
+	# operators
+	#bpy.utils.register_class(ShowSpaceTakenOperator)
+	#bpy.utils.register_class(HideSpaceTakenOperator)
 def unregister():
 	bpy.utils.unregister_module(__name__)
 	bpy.types.INFO_MT_file_export.remove(menu_func_export)
+
+	# operators
+	#bpy.utils.unregister_class(ShowSpaceTakenOperator)
+	#bpy.utils.unregister_class(HideSpaceTakenOperator)
 
 if __name__ == "__main__":
 	register()

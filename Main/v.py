@@ -20,6 +20,7 @@ def GetObjByName(name):
 	return null
 
 # general
+# ==========
 
 def indentLines(str, count = 1, indentFirstLine = true):
 	for i in range(0, count):
@@ -245,3 +246,73 @@ def fixMatrixForRootBone(localMatrix):
 	#rotation = Quaternion([.707107, 0, 0, -.707107]) * rotation
 	
 	return Matrix.Translation(position) * rotation.to_matrix().to_4x4() * Matrix.Scale(1, 4, scale)
+
+# 3d object creation
+# ==========
+
+def CreateObject_Empty(name, position = (0, 0, 0), rotation = (0, 0, 0, 1), scale = (1, 1, 1), emptyDrawType = "PLAIN_AXES"):
+	position = Vector(position)
+	rotation = Vector(rotation)
+	scale = Vector(scale)
+
+	result = bpy.data.objects.new(name, None)
+
+	scene = bpy.context.scene
+	scene.objects.link(result)
+	scene.update()
+
+	result.location = position
+	#result.rotation = rotation
+	result.scale = scale #/ 2
+
+	result.empty_draw_type = emptyDrawType
+	
+	return result
+
+def CreateObject_Cube(name, position = (0, 0, 0), rotation = (0, 0, 0, 1), scale = (1, 1, 1)):
+	position = Vector(position)
+	rotation = Vector(rotation)
+	scale = Vector(scale)
+
+	#return bpy.ops.mesh.primitive_cube_add(location = location, rotation = rotation, scale = scale)
+	bpy.ops.mesh.primitive_cube_add() #location = position)
+	result = [a for a in bpy.data.objects if a.select][0]
+	result.location = position + Vector((scale.x / 2, scale.y / 2, scale.z / 2))
+	#result.rotation = rotation #result.localRotation = rotation
+	result.scale = scale #result.localScale = scale
+	return result
+
+# object control
+# ==========
+
+savedSelections = {}
+def SaveSelection(name = "main"):
+	savedSelections[name] = GetSelection()
+def GetSelection():
+	result = {}
+	for obj in bpy.data.objects:
+		result[obj] = obj.select
+	return result
+def LoadSelection(name = "main"):
+	selection = savedSelections[name]
+	for obj in bpy.data.objects:
+		obj.select = obj in selection and selection[obj]
+
+def DeleteObject(obj):
+	for child in obj.children:
+		DeleteObject(child)
+
+	for obj2 in bpy.context.scene.objects:
+		obj2.select = false
+	obj.select = true
+	bpy.ops.object.delete()
+
+'''def SetObjectOriginPoint(obj, originPoint):
+	saved_location = bpy.context.scene.cursor_location.copy()
+    bpy.ops.view3d.snap_cursor_to_selected()
+
+    bpy.ops.object.mode_set(mode = 'OBJECT')
+    bpy.ops.object.origin_set(type='ORIGIN_CURSOR')  
+    bpy.context.scene.cursor_location = saved_location
+
+    bpy.ops.object.mode_set(mode = 'EDIT')'''
