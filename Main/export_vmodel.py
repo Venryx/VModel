@@ -432,9 +432,12 @@ def GetMaterialsStr(obj, mesh):
 		result += "\n{diffuseColor:\"" + ColorToHexStr(material.diffuse_color) + "\""
 		if material.node_tree != null: # todo: make sure this is correct
 			for node in material.node_tree.nodes:
+				Log(node.type)
 				if node.type == "TEX_IMAGE": # for now, we just assume that the first image-texture node holds the texture actually used
 					textureBaseName = re.sub("[.0-9]+$", "", node.image.name)
 					result += " texture:\"" + textureBaseName + "\""
+				elif node.type == "BSDF_TRANSPARENT": # for now, we just assume that a "Transparent BSDF" shader means transparency is being used
+					result += " transparency:true"
 		result += "}"
 
 	result = v.indentLines(result, 1, false)
