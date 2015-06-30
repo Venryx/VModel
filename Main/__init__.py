@@ -1,14 +1,14 @@
-#__all__ = ["v", "vdebug", "globals", "export_vmodel"]
+#__all__ = ["v", "vdebug", "vglobals", "export_vmodel"]
 import io_scene_vmodel.v
 import io_scene_vmodel.vdebug
-import io_scene_vmodel.globals
+import io_scene_vmodel.vglobals
 import io_scene_vmodel.export_vmodel
 
 # init
 # ==========
 
 from io_scene_vmodel import *
-from io_scene_vmodel.globals import *
+from io_scene_vmodel.vglobals import *
 
 from math import *
 #import math
@@ -37,8 +37,8 @@ if "bpy" in locals():
 		imp.reload(v)
 	if "vdebug" in locals():
 		imp.reload(vdebug)
-	if "globals" in locals():
-		imp.reload(globals)
+	if "vglobals" in locals():
+		imp.reload(vglobals)
 	if "export_vmodel" in locals():
 		imp.reload(export_vmodel)
 
@@ -111,6 +111,9 @@ class HideSpaceTakenOperator(bpy.types.Operator):
 
 bpy.types.Object.VModel_export = bpy.props.BoolProperty(default = true)
 bpy.types.Object.VModel_anchorToTerrain = bpy.props.BoolProperty(default = false)
+bpy.types.Object.material_doubleSided = bpy.props.BoolProperty(default = false)
+bpy.types.Object.material_alphaMin_enabled = bpy.props.BoolProperty(default = false)
+bpy.types.Object.material_alphaMin = bpy.props.FloatProperty(description = "Minimum alpha required for a pixel/fragment to be rendered.", min = 0, max = 1, default = .5)
 
 class OBJECT_PT_hello(bpy.types.Panel):
 	bl_label = "VModel"
@@ -121,7 +124,7 @@ class OBJECT_PT_hello(bpy.types.Panel):
 	def draw(self, context):
 		layout = self.layout
 		obj = context.object
-
+		
 		row = layout.row()
 		row.label(text="Selected object: " + obj.name)
 
@@ -134,6 +137,17 @@ class OBJECT_PT_hello(bpy.types.Panel):
 		row = layout.row()
 		row.operator("view3d.show_space_taken", text="Show space taken")
 		row.operator("view3d.hide_space_taken", text="Hide space taken")
+
+		row = layout.row()
+		row.label(text="Material:")
+
+		row = layout.row()
+		row.prop(obj, "material_doubleSided", text="Double-sided")
+
+		row = layout.row()
+		row.prop(obj, "material_alphaMin_enabled", text="Alpha min")
+		if obj.material_alphaMin_enabled:
+			row.prop(obj, "material_alphaMin", text="")
 
 # VModel material panel
 # ==========
@@ -198,8 +212,6 @@ def get_settings_fullpath():
 	return os.path.join(bpy.app.tempdir, SETTINGS_FILE_EXPORT)
 
 def save_settings_export(context, properties):
-	#__import__('code').interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
-
 	settings = {}
 	for name in dir(properties): #properties.__dict__.keys():
 		if name in properties:
@@ -327,9 +339,9 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 
 		import io_scene_vmodel.export_vmodel
 		#global s_defaultNumberTruncate
-		globals.s_defaultNumberTruncate = self.maxDecimalPlaces
+		vglobals.s_defaultNumberTruncate = self.maxDecimalPlaces
 		return io_scene_vmodel.export_vmodel.save(self, context, self.properties)
-		globals.s_defaultNumberTruncate = -1
+		vglobals.s_defaultNumberTruncate = -1
 
 	def draw(self, context):
 		layout = self.layout

@@ -21,7 +21,7 @@ Blender exporter for VModel format (.vmodel vdf files).
 """
 
 from io_scene_vmodel import *
-from io_scene_vmodel.globals import *
+from io_scene_vmodel.vglobals import *
 
 import bpy
 import mathutils
@@ -429,15 +429,24 @@ def GetFacesStr(obj, mesh):
 def GetMaterialsStr(obj, mesh):
 	result = "[^]"
 	for materialIndex, material in enumerate(obj.data.materials):
-		result += "\n{diffuseColor:\"" + ColorToHexStr(material.diffuse_color) + "\""
-		if material.node_tree != null: # todo: make sure this is correct
-			for node in material.node_tree.nodes:
-				Log(node.type)
-				if node.type == "TEX_IMAGE": # for now, we just assume that the first image-texture node holds the texture actually used
+		if not material.use_nodes:
+			raise Exception("Materials must have the \"Use Nodes\" setting enabled.")
+		matStr = "\n{" #diffuseColor:\"" + ColorToHexStr(material.diffuse_color) + "\""
+		if material.node_tree != null:
+			for node in material.node_tree.nodes: # note: the below makes a lot of assumptions about the nodes' configurations and applications
+				if node.name == "Diffuse BSDF": #type == "BSDF_DIFFUSE":
+					#matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.color) + "\""
+					matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.inputs[0].default_value) + "\"" # maybe todo: get this to show the gamma corrected value (as in UI) rather than the base
+				elif node.name == "Transparent BSDF": #type == "BSDF_TRANSPARENT":
+					matStr += ("" if matStr.count(":") == 0 else " ") + "transparency:true"
+				elif node.name == "Mix Shader":
+					matStr += ("" if matStr.count(":") == 0 else " ") + "alpha:" + s(node.inputs[0].default_value)
+				elif node.name == "Image Texture": #type == "TEX_IMAGE":
 					textureBaseName = re.sub("[.0-9]+$", "", node.image.name)
-					result += " texture:\"" + textureBaseName + "\""
-				elif node.type == "BSDF_TRANSPARENT": # for now, we just assume that a "Transparent BSDF" shader means transparency is being used
-					result += " transparency:true"
+					matStr += ("" if matStr.count(":") == 0 else " ") + "texture:\"" + textureBaseName + "\""
+			result += matStr
+		if "material_doubleSided" in obj and obj.material_doubleSided:
+			result += " doubleSided:true"
 		result += "}"
 
 	result = v.indentLines(result, 1, false)
@@ -446,6 +455,8 @@ def GetMaterialsStr(obj, mesh):
 
 def ColorToHexStr(color):
 	result = ""
+	if len(color) == 4: # for now, trim off the alpha component (if there is one)
+		color = color[:3]
 	for colorComp in color:
 		# compensate for gamma-correction thing (full white was showing up as "cccccc" (204, 204, 204) before)
 		# see: http://blenderartists.org/forum/showthread.php?320221-Converting-HEX-colors-to-blender-RGB
