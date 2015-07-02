@@ -26,22 +26,7 @@ bl_info = {
 	"category": "Import-Export"
 }
 
-# to support reload properly, try to access a package var; if it's there, reload everything
 import bpy
-if "bpy" in locals():
-	#unregister()
-	#register()
-
-	import imp
-	if "v" in locals():
-		imp.reload(v)
-	if "vdebug" in locals():
-		imp.reload(vdebug)
-	if "vglobals" in locals():
-		imp.reload(vglobals)
-	if "export_vmodel" in locals():
-		imp.reload(export_vmodel)
-
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 
@@ -111,6 +96,7 @@ class HideSpaceTakenOperator(bpy.types.Operator):
 
 bpy.types.Object.VModel_export = bpy.props.BoolProperty(default = true)
 bpy.types.Object.VModel_anchorToTerrain = bpy.props.BoolProperty(default = false)
+bpy.types.Object.VModel_anchorVertexesToTerrain = bpy.props.BoolProperty(default = false)
 bpy.types.Object.material_doubleSided = bpy.props.BoolProperty(default = false)
 bpy.types.Object.material_alphaMin_enabled = bpy.props.BoolProperty(default = false)
 bpy.types.Object.material_alphaMin = bpy.props.FloatProperty(description = "Minimum alpha required for a pixel/fragment to be rendered.", min = 0, max = 1, default = .5)
@@ -133,6 +119,9 @@ class OBJECT_PT_hello(bpy.types.Panel):
 
 		row = layout.row()
 		row.prop(obj, "VModel_anchorToTerrain", text="Anchor to terrain")
+
+		row = layout.row()
+		row.prop(obj, "VModel_anchorVertexesToTerrain", text="Anchor vertexes to terrain")
 
 		row = layout.row()
 		row.operator("view3d.show_space_taken", text="Show space taken")
@@ -184,9 +173,9 @@ class MATERIAL_PT_hello(bpy.types.Panel):
 		#row = layout.row()
 		#row.prop(mat, "VModel_useVertexColors", text="Use vertex colors")
 
-# ################################################################
 # Exporter - settings
-# ################################################################
+# ==========
+
 SETTINGS_FILE_EXPORT = "vmodel_settings_export.js"
 
 import os
@@ -218,37 +207,11 @@ def save_settings_export(context, properties):
 			#Log("propName:" + name)
 			settings[name] = properties[name]
 
-	'''
-	fname = get_settings_fullpath()
-	f = open(fname, "w")
-	json.dump(settings, f)
-	'''
-
 	context.scene["vModelExportSettings"] = json.dumps(settings)
 
 def restore_settings_export(context, properties, self):
-	'''
-	settings = {}
-	fname = get_settings_fullpath()
-	if file_exists(fname):
-		f = open(fname, "r")
-		''#'
-		try: # maybe temp
-			settings = json.load(f)
-		except:
-			pass
-		''#'
-		settings = json.load(f)
-	'''
-
 	settings = {}
 	settings = json.loads(context.scene["vModelExportSettings"]) if "vModelExportSettings" in context.scene else {}
-	'''
-	try:
-		settings = json.loads(context.scene["vModelExportSettings"]) if "vModelExportSettings" in context.scene else {}
-	except:
-		pass
-	'''
 	
 	defaults = {
 		"option_vertices": true,
@@ -411,8 +374,24 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 
 		layout.separator()
 
-# registration stuff
+# registration stuff (old)
 # ==========
+
+# [was at top section] to support reload properly, try to access a package var; if it's there, reload everything
+'''import bpy
+if "bpy" in locals():
+	#unregister()
+	#register()
+
+	import imp
+	if "v" in locals():
+		imp.reload(v)
+	if "vdebug" in locals():
+		imp.reload(vdebug)
+	if "vglobals" in locals():
+		imp.reload(vglobals)
+	if "export_vmodel" in locals():
+		imp.reload(export_vmodel)
 
 def menu_func_export(self, context):
 	default_path = bpy.data.filepath.replace(".blend", ".vmodel")
@@ -433,5 +412,37 @@ def unregister():
 	#bpy.utils.unregister_class(ShowSpaceTakenOperator)
 	#bpy.utils.unregister_class(HideSpaceTakenOperator)
 
+if __name__ == "__main__":
+	register()'''
+
+# registration stuff
+# ==========
+
+def menu_func_export(self, context):
+	default_path = bpy.data.filepath.replace(".blend", ".vmodel")
+	self.layout.operator(ExportVModel.bl_idname, text="VModel (.vmodel)").filepath = default_path
+
+def ReloadModules(): # doesn't reload itself (this root/init module), because that already happens when the F8 button is pressed (also, I don't know how to have it do so)
+	# clear submodules
+	import sys
+	module_name = "io_scene_vmodel"
+	Log("Reloading submodules for " + module_name)
+	for m in dict(sys.modules):
+		if m[0:len(module_name) + 1] == module_name + ".":
+			Log("    Reloading submodule: " + m[len(module_name) +1:])
+			del sys.modules[m]
+
+	import io_scene_vmodel.v
+	import io_scene_vmodel.vdebug
+	import io_scene_vmodel.vglobals
+	import io_scene_vmodel.export_vmodel
+
+def register():
+	bpy.utils.register_module(__name__)
+	bpy.types.INFO_MT_file_export.append(menu_func_export)
+	ReloadModules()
+def unregister():
+	bpy.utils.unregister_module(__name__)
+	bpy.types.INFO_MT_file_export.remove(menu_func_export)
 if __name__ == "__main__":
 	register()

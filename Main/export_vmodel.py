@@ -164,6 +164,8 @@ def GetObjectStr(obj, data, options):
 
 	if obj.VModel_anchorToTerrain:
 		object_string += "\nanchorToTerrain:true"
+	if obj.VModel_anchorVertexesToTerrain:
+		object_string += "\nanchorVertexesToTerrain:true"
 
 	children_string = "{^}"
 	for child in obj.children:
