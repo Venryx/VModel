@@ -332,17 +332,18 @@ def GetVertexesStr(obj, mesh, vertices, options):
 			'''
 
 			# this approach took .69 seconds
-			vertexInfo = vertexInfoByVertexThenLayerThenFace[vertexIndex]
-			for layerIndex, layerInfo in sorted(vertexInfo.items()):
-				layerFaceUVValues = []
-				for faceIndex, faceInfo in sorted(layerInfo.items()):
-					if not Any(layerFaceUVValues, lambda a:a["uvPoint"][0] == faceInfo["uvPoint"][0] and a["uvPoint"][1] == faceInfo["uvPoint"][1]):
-						layerFaceUVValues.append(faceInfo)
-				if len(layerFaceUVValues) == 1:
-					uvsStr += " uv" + (s(layerIndex + 1) if layerIndex > 0 else "") + ":[" + s(faceInfo["uvPoint"][0]) + " " + s(faceInfo["uvPoint"][1]) + "]"
-				else:
+			if vertexIndex in vertexInfoByVertexThenLayerThenFace: # (a vertex might not be a part of any face)
+				vertexInfo = vertexInfoByVertexThenLayerThenFace[vertexIndex]
+				for layerIndex, layerInfo in sorted(vertexInfo.items()):
+					layerFaceUVValues = []
 					for faceIndex, faceInfo in sorted(layerInfo.items()):
-						uvsStr += " uv" + (s(layerIndex + 1) if layerIndex > 0 else "") + "_face" + s(faceIndex) + ":[" + s(faceInfo["uvPoint"][0]) + " " + s(faceInfo["uvPoint"][1]) + "]"
+						if not Any(layerFaceUVValues, lambda a:a["uvPoint"][0] == faceInfo["uvPoint"][0] and a["uvPoint"][1] == faceInfo["uvPoint"][1]):
+							layerFaceUVValues.append(faceInfo)
+					if len(layerFaceUVValues) == 1:
+						uvsStr += " uv" + (s(layerIndex + 1) if layerIndex > 0 else "") + ":[" + s(faceInfo["uvPoint"][0]) + " " + s(faceInfo["uvPoint"][1]) + "]"
+					else:
+						for faceIndex, faceInfo in sorted(layerInfo.items()):
+							uvsStr += " uv" + (s(layerIndex + 1) if layerIndex > 0 else "") + "_face" + s(faceIndex) + ":[" + s(faceInfo["uvPoint"][0]) + " " + s(faceInfo["uvPoint"][1]) + "]"
 		result += uvsStr
 
 		if obj.find_armature() != null:
@@ -688,8 +689,8 @@ def GetActionStr(obj, armature, action, options):
 
 			bonePropertyChannels = bonePropertyChannelsSet[poseBone.name]
 
-			#isKeyframe = has_keyframe_at(channels_location[boneIndex], frame) or has_keyframe_at(channels_rotation[boneIndex], frame) or has_keyframe_at(channels_scale[boneIndex], frame)
-			isKeyframe = has_keyframe_at(bonePropertyChannels["location"], frame) or has_keyframe_at(bonePropertyChannels["rotation"], frame) or has_keyframe_at(bonePropertyChannels["scale"], frame)
+			#isKeyframe = IsKeyframeAt(channels_location[boneIndex], frame) or IsKeyframeAt(channels_rotation[boneIndex], frame) or IsKeyframeAt(channels_scale[boneIndex], frame)
+			isKeyframe = IsKeyframeAt(bonePropertyChannels["location"], frame) or IsKeyframeAt(bonePropertyChannels["rotation"], frame) or IsKeyframeAt(bonePropertyChannels["scale"], frame)
 
 			vdebug.EndSection("3")
 
@@ -699,9 +700,9 @@ def GetActionStr(obj, armature, action, options):
 			if isKeyframe:
 				vdebug.StartSection()
 
-				'''pchange = has_keyframe_at(bonePropertyChannels["location"], frame)
-				rchange = has_keyframe_at(bonePropertyChannels["rotation"], frame)
-				schange = has_keyframe_at(bonePropertyChannels["scale"], frame)'''
+				'''pchange = IsKeyframeAt(bonePropertyChannels["location"], frame)
+				rchange = IsKeyframeAt(bonePropertyChannels["rotation"], frame)
+				schange = IsKeyframeAt(bonePropertyChannels["scale"], frame)'''
 				pchange = true
 				rchange = true
 				schange = true
@@ -841,15 +842,14 @@ def GetBoneChannels(action, bone, channelType):
 
 	return result
 
-def find_keyframe_at(channel, frame):
+def GetKeyframeAt(channel, frame):
 	for keyframe in channel.keyframe_points:
 		if keyframe.co[0] == frame:
 			return keyframe
 	return null
-
-def has_keyframe_at(channels, frame):
+def IsKeyframeAt(channels, frame):
 	for channel in channels:
-		if not find_keyframe_at(channel, frame) is null:
+		if not GetKeyframeAt(channel, frame) is null:
 			return true
 	return false
 

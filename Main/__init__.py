@@ -210,15 +210,12 @@ def save_settings_export(context, properties):
 	context.scene["vModelExportSettings"] = json.dumps(settings)
 
 def restore_settings_export(context, properties, self):
-	settings = {}
-	settings = json.loads(context.scene["vModelExportSettings"]) if "vModelExportSettings" in context.scene else {}
-	
-	defaults = {
+	'''defaults = {
 		"option_vertices": true,
 		"option_faces": true,
 		"option_normals": true,
 
-		"option_colors": true,
+		"option_colors": false,
 		"option_uv_coords": true,
 
 		"option_skinning": true,
@@ -226,7 +223,7 @@ def restore_settings_export(context, properties, self):
 
 		"align_model": "None",
 
-		"rotationDataType": "Euler Angle",
+		"rotationDataType": "Quaternion",
 		"maxDecimalPlaces": 5,
 		"writeDefaultValues": false,
 
@@ -236,7 +233,9 @@ def restore_settings_export(context, properties, self):
 	}
 
 	for name in defaults.keys():
-		self.properties[name] = defaults[name]
+		self.properties[name] = defaults[name]'''
+
+	settings = json.loads(context.scene["vModelExportSettings"]) if "vModelExportSettings" in context.scene else {}
 	for name in settings.keys():
 		self.properties[name] = settings[name]
 
@@ -257,14 +256,12 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 	filename_ext = ".vmodel"
 
 	option_vertices = BoolProperty(name = "Vertices", description = "Export vertices", default = true)
-	option_vertices_deltas = BoolProperty(name = "Deltas", description = "Delta vertices", default = false)
-
+	#option_vertices_deltas = BoolProperty(name = "Deltas", description = "Delta vertices", default = false)
 	option_faces = BoolProperty(name = "Faces", description = "Export faces", default = true)
-	option_faces_deltas = BoolProperty(name = "Deltas", description = "Delta faces", default = false)
-
+	#option_faces_deltas = BoolProperty(name = "Deltas", description = "Delta faces", default = false)
 	option_normals = BoolProperty(name = "Normals", description = "Export normals", default = true)
 
-	option_colors = BoolProperty(name = "Colors", description = "Export vertex colors", default = true)
+	option_colors = BoolProperty(name = "Colors", description = "Export vertex colors", default = false)
 	option_uv_coords = BoolProperty(name = "UVs", description = "Export texture coordinates", default = true)
 
 	option_skinning = BoolProperty(name = "Skinning", description = "Export skin data", default = true)
@@ -274,13 +271,13 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 	align_model = EnumProperty(name = "Align model", description = "Align model", items = align_types, default = "None")
 
 	rotationDataTypes = [("Euler Angle","Euler Angle","Euler Angle"), ("Quaternion","Quaternion","Quaternion")]
-	rotationDataType = EnumProperty(name = "Rotation data-type/structure", description = "How to store object rotations (euler angle is simpler, quaternion avoids gimbal lock)", items = rotationDataTypes, default = "Euler Angle")
+	rotationDataType = EnumProperty(name = "Rotation data-type/structure", description = "How to store object rotations (euler angle is simpler, quaternion avoids gimbal lock)", items = rotationDataTypes, default = "Quaternion")
 	maxDecimalPlaces = IntProperty(name = "Max decimal places", description = "Round serialized numbers to have at most x decimal-places (-1 for no rounding)", min = -1, max = 30, soft_min = -1, soft_max = 30, default = 5)
 	writeDefaultValues = BoolProperty(name = "Write default values", description = "Write values even if they're the defaults. (e.g. \"scale:[1 1 1]\")", default = false)
 
 	option_animation_morph = BoolProperty(name = "Morph animation", description = "Export animation (morphs)", default = false)
-	option_animation_skeletal = BoolProperty(name = "Skeletal animation", description = "Export animation (skeletal)", default = false)
-	option_frame_index_as_time = BoolProperty(name = "Frame index as time", description = "Use (original) frame index as frame time", default = false)
+	option_animation_skeletal = BoolProperty(name = "Skeletal animation", description = "Export animation (skeletal)", default = true)
+	option_frame_index_as_time = BoolProperty(name = "Frame index as time", description = "Use (original) frame index as frame time", default = true)
 
 	def invoke(self, context, event):
 		restore_settings_export(context, self.properties, self)
