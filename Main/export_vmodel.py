@@ -115,7 +115,8 @@ def ActionContainsChannelsForArmature(action, armature):
 def extract_mesh(obj, scene, options):
 	if obj.type == "MESH":
 		# collapse modifiers into mesh
-		mesh = obj.to_mesh(scene, True, "RENDER")
+		#mesh = obj.to_mesh(scene, True, "RENDER")
+		mesh = obj.to_mesh(scene, false, "RENDER") # maybe todo: have it apply all modifiers other than the Armature ones
 		if not mesh:
 			raise Exception("Error, could not get mesh data from object [%s]" % obj.name)
 
@@ -444,7 +445,8 @@ def GetBoneStr(obj, armature, bone, options):
 		parent_matrix = v.GetBoneLocalMatrix(bone.parent) #bone.parent.matrix_local
 		bone_matrix = v.GetBoneLocalMatrix(bone) #bone.matrix_local
 		bone_matrix = parent_matrix.inverted() * bone_matrix'''
-	bone_matrix = v.GetBoneLocalMatrix(bone, true, false) #poseBone)
+	#bone_matrix = v.GetBoneLocalMatrix(bone, true, false) #poseBone)
+	bone_matrix = bone.GetMatrix()
 	if bone.parent == null:
 		bone_matrix = v.fixMatrixForRootBone(bone_matrix)
 	pos, rotQ, scl = bone_matrix.decompose()
@@ -524,7 +526,7 @@ def GetKeyframeAt(channel, frame):
 	return null
 def IsKeyframeAt(channels, frame):
 	for channel in channels:
-		if not GetKeyframeAt(channel, frame) is null:
+		if GetKeyframeAt(channel, frame) is not null:
 			return true
 	return false
 
@@ -555,6 +557,7 @@ def GetActionStr(obj, armature, action, options):
 	fps = bpy.data.scenes[0].render.fps
 	#firstFrame = action.frame_range[0]
 	enderFrame = int(action.frame_range[1]) + 1
+	#enderFrame = int(action.frame_range[1]) # for looping animation, skip the last frame (since it's just a duplicate of the first)
 
 	bonePropertyChannelsSet = {}
 	for boneIndex, poseBone in enumerate(obj.pose.bones):
@@ -611,7 +614,8 @@ def GetActionStr(obj, armature, action, options):
 			#bone_matrix = poseBone.matrix
 			#bone_matrix = armature_matrix * poseBone.matrix
 			#bone_matrix = v.GetBoneLocalMatrix(poseBone, false)
-			bone_matrix = v.GetBoneLocalMatrix(poseBone) # maybe temp; bake orientation as relative to armature, as Unity API wants it in the end
+			#bone_matrix = v.GetBoneLocalMatrix(poseBone) # maybe temp; bake orientation as relative to armature, as Unity API wants it in the end
+			bone_matrix = poseBone.GetMatrix()
 			pos, rotQ, scl = bone_matrix.decompose()
 
 			'''pos = poseBone.location
@@ -652,11 +656,7 @@ def GetActionStr(obj, armature, action, options):
 				rchange = true
 				schange = true
 
-				px, py, pz = pos.x, pos.y, pos.z
-				rx, ry, rz, rw = rotQ.x, rotQ.y, rotQ.z, rotQ.w
-
-				posStr = "[" + s(px) + " " + s(py) + " " + s(pz) + "]"
-				rotStr = s(rotEuler) if options.rotationDataType == "Euler Angle" else ("[" + s(rx) + " " + s(ry) + " " + s(rz) + " " + s(rw) + "]")
+				rotStr = s(rotEuler) if options.rotationDataType == "Euler Angle" else s(rotQ)
 				scaleStr = s(scl) if options.writeDefaultValues or fabs(scl.x - 1) > .001 or fabs(scl.y - 1) > .001 or fabs(scl.z - 1) > .001 else null
 
 				vdebug.EndSection("4")
@@ -665,13 +665,13 @@ def GetActionStr(obj, armature, action, options):
 				# start-frame and end-frame: need position, rotation, and scale attributes (required frames)
 				#if frame == firstFrame or frame == enderFrame - 1:
 				if frame == 0 or frame == enderFrame - 1:
-					keyframe = s(time) + ":{position:" + posStr + " rotation:" + rotStr + (" scale:" + scaleStr if scaleStr != null else "") + "}"
+					keyframe = s(time) + ":{position:" + s(pos) + " rotation:" + rotStr + (" scale:" + scaleStr if scaleStr != null else "") + "}"
 					keys[boneIndex].append(keyframe)
 				# middle-frame: needs only one of the attributes; can be an empty frame (optional frame)
 				elif pchange == True or rchange == true:
 					keyframe = s(time) + ':{'
 					if pchange == true:
-						keyframe += "position:" + posStr
+						keyframe += "position:" + s(pos)
 					if rchange == true:
 						keyframe += " rotation:" + rotStr
 					if schange == true and scaleStr != null:
