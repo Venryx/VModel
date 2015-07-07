@@ -210,39 +210,9 @@ def save_settings_export(context, properties):
 	context.scene["vModelExportSettings"] = json.dumps(settings)
 
 def restore_settings_export(context, properties, self):
-	'''defaults = {
-		"option_vertices": true,
-		"option_faces": true,
-		"option_normals": true,
-
-		"option_colors": false,
-		"option_uv_coords": true,
-
-		"option_skinning": true,
-		"option_bones": true,
-
-		"align_model": "None",
-
-		"rotationDataType": "Quaternion",
-		"maxDecimalPlaces": 5,
-		"writeDefaultValues": false,
-
-		"option_animation_morph": false,
-		"option_animation_skeletal": true,
-		"option_frame_index_as_time": true,
-	}
-
-	for name in defaults.keys():
-		self.properties[name] = defaults[name]'''
-
 	settings = json.loads(context.scene["vModelExportSettings"]) if "vModelExportSettings" in context.scene else {}
 	for name in settings.keys():
 		self.properties[name] = settings[name]
-
-	'''for name in settings.keys(): #dir(settings): #properties.__dict__.keys():
-		Log(name + ";" + s(name in settings) + ";" + s(name in defaults))
-		if name in settings or name in defaults: #not name.startswith("_"):
-			self.properties[name] = settings[name] if name in settings else defaults[name]'''
 
 # exporter
 # ==========
@@ -337,7 +307,7 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 
 		row = layout.row()
 		row.prop(self.properties, "option_uv_coords")
-		row.prop(self.properties, "option_colors")
+		#row.prop(self.properties, "option_colors")
 		layout.separator()
 
 		row = layout.row()

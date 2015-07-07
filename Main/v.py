@@ -200,7 +200,7 @@ def bottom(vertices):
 # 3d position/rotation/scale
 # ==========
 
-def getBoneLocalMatrix(poseBoneOrBone, includeBaseMatrix = true, includePoseMatrix = true): # accepts either a pose-bone or a bone
+def GetBoneLocalMatrix(poseBoneOrBone, includeBaseMatrix = true, includePoseMatrix = true): # accepts either a pose-bone or a bone
 	poseBone = poseBoneOrBone if type(poseBoneOrBone).__name__ == "PoseBone" else null
 	bone = poseBone.bone if poseBone is not null else poseBoneOrBone
 

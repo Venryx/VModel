@@ -1,25 +1,3 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
-"""
-Blender exporter for VModel format (.vmodel vdf files).
-"""
-
 from io_scene_vmodel import *
 from io_scene_vmodel.vglobals import *
 
@@ -44,74 +22,21 @@ def save(operator, context, options):
 	#options.filepath = ensure_extension(options.filepath, '.json') # maybe todo: add this back
 	source_file = os.path.basename(bpy.data.filepath)
 
-	# todo: make sure this isn't needed
-	#if scene.objects.active:
-	#	bpy.ops.object.mode_set(mode='OBJECT')
-
 	text = "{^}"
-	text += "\nobjects:" + generate_objects({"scene": context.scene, "objects": context.scene.objects}, options)
+	text += "\nobjects:" + GetObjectsStr({"scene": context.scene, "objects": context.scene.objects}, options)
 	text = v.indentLines(text, 1, false)
-
-	'''vdebug.MarkSection("Mesh")
-	vdebug.MarkSection("1")
-	vdebug.MarkSection("2")
-	vdebug.MarkSection("3")
-	vdebug.MarkSection("4")
-	vdebug.MarkSection("a")
-	vdebug.MarkSection("b")
-	vdebug.MarkSection("c")
-	vdebug.MarkSection("d")
-	vdebug.MarkSection("Armature")
-	vdebug.MarkSection("Animations")'''
 
 	vdebug.MarkSections()
 
 	v.write_file(options.filepath, text)
 	return {'FINISHED'}
 
-# basic object serializers
-# ==========
-
-def generate_vec2(vec):
-	return "[" + s(vec[0]) + " " + s(vec[1]) + "]"
-def generate_vec3(vec):
-	return "[" + s(vec[0]) + " " + s(vec[1]) + " " + s(vec[2]) + "]"
-def generate_vec4(vec):
-	return "[" + s(vec[0]) + " " + s(vec[1]) + " " + s(vec[2]) + " " + s(vec[3]) + "]"
-def generate_quat(quat):
-	return "[" + s(quat.x) + " " + s(quat.y) + " " + s(quat.z) + " " + s(quat.w) + "]"
-
-def generate_bool_property(property):
-	if property:
-		return "true"
-	return "false"
-def generate_string(s):
-	return '"%s"' % s
-def generate_string_list(src_list):
-	return "[" + " ".join(generate_string(item) for item in src_list) + "]"
-def get_mesh_filename(mesh):
-	object_id = mesh["data"]["name"]
-	#filename = "%s.json" % sanitize(object_id)
-	return filename
-
-def generate_vertex(vertex):
-	return s(vertex.co.x) + " " + s(vertex.co.y) + " " + s(vertex.co.z)
-def generate_normal(n):
-	return s(n[0]) + " " + s(n[1]) + " " + s(n[2])
-def generate_vertex_color(c):
-	return s(c) #"%d" % c
-
-def generate_hex(number):
-	return "0x%06x" % number
-def hexcolor(c):
-	return (int(c[0] * 255) << 16) + (int(c[1] * 255) << 8) + int(c[2] * 255)
-
 # objects
 # ==========
 
 meshFirstObjectNames = {}
 meshStrings = {}
-def generate_objects(data, options):
+def GetObjectsStr(data, options):
 	global meshFirstObjectNames, meshStrings
 	meshFirstObjectNames = {}
 	meshStrings = {}
@@ -121,8 +46,6 @@ def generate_objects(data, options):
 		if obj.parent == null and obj.VModel_export: # root objects
 			chunks.append(obj.name + ":" + GetObjectStr(obj, data, options))
 	return "{^}\n" + v.indentLines("\n".join(chunks))
-
-#def ConvertObjectToVDF(obj, data, options):
 def GetObjectStr(obj, data, options):
 	object_string = "{^}"
 
@@ -135,9 +58,9 @@ def GetObjectStr(obj, data, options):
 	rotationQ_degrees = v.Quaternion_toDegrees(rotationQ)
 	rotation = v.Vector_toDegrees(rotationQ_degrees.to_euler("XYZ")); #ZYX"))
 
-	object_string += "\nposition:" + generate_vec3(position)
-	object_string += "\nrotation:" + (generate_vec3(rotation) if options.rotationDataType == "Euler Angle" else generate_quat(rotationQ))
-	#object_string += "\nscale:" + generate_vec3(scale)
+	object_string += "\nposition:" + s(position)
+	object_string += "\nrotation:" + (s(rotation) if options.rotationDataType == "Euler Angle" else s(rotationQ))
+	#object_string += "\nscale:" + s(scale)
 	object_string += "\nscale:" + s(scale) if options.writeDefaultValues or fabs(scale.x - 1) > .001 or fabs(scale.y - 1) > .001 or fabs(scale.z - 1) > .001 else ""
 
 	if obj.type == "MESH":
@@ -317,7 +240,7 @@ def GetVertexesStr(obj, mesh, vertices, options):
 	result = "[^]"
 	for vertexIndex, vertex in enumerate(vertices):
 		result += "\n{"
-		result += "position:[" + generate_vertex(vertex) + "]"
+		result += "position:" + s(vertex.co)
 		result += " normal:[" + s(vertex.normal[0]) + " " + s(vertex.normal[1]) + " " + s(vertex.normal[2]) + "]"
 
 		uvsStr = ""
@@ -370,7 +293,9 @@ def GetBoneWeightsStr(obj, mesh, vertex):
 # vertex colors (to become part of "mesh" section)
 # ==========
 
-'''
+'''def hexcolor(c):
+	return (int(c[0] * 255) << 16) + (int(c[1] * 255) << 8) + int(c[2] * 255)
+
 def extract_vertex_colors(mesh, colors, count):
 	color_layer = mesh.tessface_vertex_colors.active.data
 
@@ -394,8 +319,7 @@ def generate_vertex_colors(colors, options):
 	for key, index in sorted(colors.items(), key=operator.itemgetter(1)):
 		chunks.append(key)
 
-	return "[" + " ".join(generate_vertex_color(c) for c in chunks) + "]"
-'''
+	return "[" + " ".join(s(c) for c in chunks) + "]"'''
 
 # faces
 # ==========
@@ -501,10 +425,9 @@ def GetArmatureStr(obj, armature, options):
 
 	return result
 
-def GetBoneStr(obj, armature, bone, options):
 #def GetBoneStr(obj, armature, poseBone, options):
 #	bone = poseBone.bone
-
+def GetBoneStr(obj, armature, bone, options):
 	hierarchy = []
 	armature_matrix = obj.matrix_world
 	#poseBones = obj.pose.bones #armature.bones
@@ -516,17 +439,15 @@ def GetBoneStr(obj, armature, bone, options):
 		bone_matrix = armature_matrix * bone.matrix_local
 		bone_matrix = parent_matrix.inverted() * bone_matrix'''
 	'''if bone.parent is null:
-		bone_matrix = v.getBoneLocalMatrix(bone) #bone.matrix_local
+		bone_matrix = v.GetBoneLocalMatrix(bone) #bone.matrix_local
 	else:
-		parent_matrix = v.getBoneLocalMatrix(bone.parent) #bone.parent.matrix_local
-		bone_matrix = v.getBoneLocalMatrix(bone) #bone.matrix_local
+		parent_matrix = v.GetBoneLocalMatrix(bone.parent) #bone.parent.matrix_local
+		bone_matrix = v.GetBoneLocalMatrix(bone) #bone.matrix_local
 		bone_matrix = parent_matrix.inverted() * bone_matrix'''
-	bone_matrix = v.getBoneLocalMatrix(bone, true, false) #poseBone)
+	bone_matrix = v.GetBoneLocalMatrix(bone, true, false) #poseBone)
 	if bone.parent == null:
 		bone_matrix = v.fixMatrixForRootBone(bone_matrix)
 	pos, rotQ, scl = bone_matrix.decompose()
-
-	#__import__("code").interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
 
 	'''pos = obj.location
 	rotQ = obj.rotation_quaternion
@@ -569,16 +490,43 @@ def GetBoneStr(obj, armature, bone, options):
 # skeletal animation
 # ==========
 
-def GetAnimationsStr(obj, armature, actions, options):
-	result = "{^}"
+def GetBoneChannels(action, bone, channelType):
+	result = []
 
-	# todo: change to pose mode (or something like that)
-	for action in actions:
-		result += "\n" + action.name + ":" + GetActionStr(obj, armature, action, options)
-	result = v.indentLines(result, 1, false)
-	# todo: revert mode
+	vdebug.StartSection()
+
+	'''if len(action.groups) > 0 and Any(action.groups, lambda a:a.name == bone.name): # variant 1: groups:[{name:"Bone1", channels:[{data_path:"location"}]}]
+		for groupIndex, group in action.groups.items(): # find the channel group for the given bone
+			if group.name == bone.name:
+				for channel in group.channels: # get all desired channels in that group
+					if channelType in channel.data_path:
+						result.append(channel)
+	elif len(action.groups) > 0: # variant 2: groups:[{name:"Armature", channels:[{data_path:"pose.bones[\"Bone1\"].location"}]}]
+		for groupIndex, group in action.groups.items():
+			for channel in group.channels:
+				# example: data_path == "pose.bones["ELEPHANt_ear_L_2"].location" (important note: there can be three location channels: one for x, one for y, and one for z)
+				if ("[\"" + bone.name + "\"]") in channel.data_path and channelType in channel.data_path:
+					result.append(channel)
+	else: # variant 3: fcurves:[{data_path:"pose.bones[\"Bone1\"].location"}]'''
+	bone_label = "\"" + bone.name + "\""
+	for channel in action.fcurves:
+		data_path = channel.data_path
+		if bone_label in data_path and channelType in data_path:
+			result.append(channel)
+
+	vdebug.EndSection("a")
 
 	return result
+def GetKeyframeAt(channel, frame):
+	for keyframe in channel.keyframe_points:
+		if keyframe.co[0] == frame:
+			return keyframe
+	return null
+def IsKeyframeAt(channels, frame):
+	for channel in channels:
+		if not GetKeyframeAt(channel, frame) is null:
+			return true
+	return false
 
 def GetActionStr(obj, armature, action, options):
 	if not options.option_animation_skeletal or len(bpy.data.actions) == 0:
@@ -605,10 +553,8 @@ def GetActionStr(obj, armature, action, options):
 
 	armature_matrix = obj.matrix_world #obj.matrix_local
 	fps = bpy.data.scenes[0].render.fps
-	start_frame = action.frame_range[0]
-	end_frame = action.frame_range[1]
-	frame_length = end_frame - start_frame
-	used_frames = int(frame_length) + 1
+	#firstFrame = action.frame_range[0]
+	enderFrame = int(action.frame_range[1]) + 1
 
 	bonePropertyChannelsSet = {}
 	for boneIndex, poseBone in enumerate(obj.pose.bones):
@@ -623,20 +569,19 @@ def GetActionStr(obj, armature, action, options):
 	vdebug.EndSection("1")
 
 	keys = {}
-	for frame_i in range(0, used_frames): # process all frames
-
+	#for frame in range(firstFrame, enderFrame): # process all frames
+	for frame in range(0, enderFrame): # process all frames
 		vdebug.StartSection()
-
-		# compute the index of the current frame (snap the last index to the end)
-		frame = start_frame + frame_i
-		if frame_i == used_frames - 1:
-			frame = end_frame
-
+		
 		# compute the time of the frame
-		if options.option_frame_index_as_time:
-			time = frame - start_frame
+		'''if options.option_frame_index_as_time:
+			time = frame - firstFrame
 		else:
-			time = (frame - start_frame) / fps
+			time = (frame - firstFrame) / fps'''
+		if options.option_frame_index_as_time:
+			time = frame
+		else:
+			time = frame / fps
 
 		# let blender compute the pose bone transformations
 		bpy.data.scenes[0].frame_set(frame)
@@ -665,8 +610,8 @@ def GetActionStr(obj, armature, action, options):
 				bone_matrix = parent_matrix.inverted() * bone_matrix'''
 			#bone_matrix = poseBone.matrix
 			#bone_matrix = armature_matrix * poseBone.matrix
-			#bone_matrix = v.getBoneLocalMatrix(poseBone, false)
-			bone_matrix = v.getBoneLocalMatrix(poseBone) # maybe temp; bake orientation as relative to armature, as Unity API wants it in the end
+			#bone_matrix = v.GetBoneLocalMatrix(poseBone, false)
+			bone_matrix = v.GetBoneLocalMatrix(poseBone) # maybe temp; bake orientation as relative to armature, as Unity API wants it in the end
 			pos, rotQ, scl = bone_matrix.decompose()
 
 			'''pos = poseBone.location
@@ -711,14 +656,15 @@ def GetActionStr(obj, armature, action, options):
 				rx, ry, rz, rw = rotQ.x, rotQ.y, rotQ.z, rotQ.w
 
 				posStr = "[" + s(px) + " " + s(py) + " " + s(pz) + "]"
-				rotStr = generate_vec3(rotEuler) if options.rotationDataType == "Euler Angle" else ("[" + s(rx) + " " + s(ry) + " " + s(rz) + " " + s(rw) + "]")
+				rotStr = s(rotEuler) if options.rotationDataType == "Euler Angle" else ("[" + s(rx) + " " + s(ry) + " " + s(rz) + " " + s(rw) + "]")
 				scaleStr = s(scl) if options.writeDefaultValues or fabs(scl.x - 1) > .001 or fabs(scl.y - 1) > .001 or fabs(scl.z - 1) > .001 else null
 
 				vdebug.EndSection("4")
 				vdebug.StartSection()
 
 				# start-frame and end-frame: need position, rotation, and scale attributes (required frames)
-				if frame == start_frame or frame == end_frame:
+				#if frame == firstFrame or frame == enderFrame - 1:
+				if frame == 0 or frame == enderFrame - 1:
 					keyframe = s(time) + ":{position:" + posStr + " rotation:" + rotStr + (" scale:" + scaleStr if scaleStr != null else "") + "}"
 					keys[boneIndex].append(keyframe)
 				# middle-frame: needs only one of the attributes; can be an empty frame (optional frame)
@@ -749,10 +695,11 @@ def GetActionStr(obj, armature, action, options):
 		parents.append(parent)
 	boneKeyframesStr = "{^}\n" + v.indentLines("\n".join(parents))
 
-	if options.option_frame_index_as_time:
+	'''if options.option_frame_index_as_time:
 		length = frame_length
 	else:
-		length = frame_length / fps
+		length = frame_length / fps'''
+	length = enderFrame
 
 	vdebug.EndSection("6")
 	vdebug.StartSection()
@@ -764,7 +711,8 @@ def GetActionStr(obj, armature, action, options):
 	animation_string += "\nboneKeyframes:" + boneKeyframesStr
 	animation_string = v.indentLines(animation_string, 1, false)
 
-	bpy.data.scenes[0].frame_set(start_frame)
+	#bpy.data.scenes[0].frame_set(start_frame)
+	bpy.data.scenes[0].frame_set(0)
 
 	# revert
 	bpy.data.scenes[0].frame_set(oldFrame)
@@ -777,177 +725,13 @@ def GetActionStr(obj, armature, action, options):
 	vdebug.EndSection("7")
 
 	return animation_string
+def GetAnimationsStr(obj, armature, actions, options):
+	result = "{^}"
 
-'''
-def find_channels(action, bone, channel_type):
-	bone_name = bone.name
-	ngroups = len(action.groups)
-	result = []
-	if ngroups > 0: # variant 1: channels grouped by bone names
-
-		# variant a: groups are per-bone
-		for group_index in range(ngroups):# find the channel group for the given bone
-			if action.groups[i].name == bone_name:
-				for channel in action.groups[group_index].channels: # get all desired channels in that group
-					if channel_type in channel.data_path:
-						result.append(channel)
-		
-		''#'
-		# variant b: groups are per-armature
-		for groupIndex, group in action.groups.items():
-			for channel in action.groups[groupIndex].channels:
-				# example: data_path == "pose.bones["ELEPHANt_ear_L_2"].location" (important note: there can be three location channels: one for x, one for y, and one for z)
-				if ("['" + bone_name + "']") in action.groups[i].name and channel_type in channel.data_path:
-					result.append(channel)
-		''#'
-
-	else: # variant 2: no channel groups, bone names included in channel names
-		bone_label = '"%s"' % bone_name
-		for channel in action.fcurves:
-			data_path = channel.data_path
-			if bone_label in data_path and channel_type in data_path:
-				result.append(channel)
-
-	__import__("code").interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
+	# todo: change to pose mode (or something like that)
+	for action in actions:
+		result += "\n" + action.name + ":" + GetActionStr(obj, armature, action, options)
+	result = v.indentLines(result, 1, false)
+	# todo: revert mode
 
 	return result
-'''
-
-def GetBoneChannels(action, bone, channelType):
-	result = []
-
-	vdebug.StartSection()
-
-	#next((a for a in action.groups if a.name == bone.name), null) != null:
-	if len(action.groups) > 0 and Any(action.groups, lambda a:a.name == bone.name): # variant 1: groups:[{name:"Bone1", channels:[{data_path:"location"}]}]
-		for groupIndex, group in action.groups.items(): # find the channel group for the given bone
-			if group.name == bone.name:
-				for channel in group.channels: # get all desired channels in that group
-					if channelType in channel.data_path:
-						result.append(channel)
-	elif len(action.groups) > 0: # variant 2: groups:[{name:"Armature", channels:[{data_path:"pose.bones[\"Bone1\"].location"}]}]
-		for groupIndex, group in action.groups.items():
-			for channel in group.channels:
-				# example: data_path == "pose.bones["ELEPHANt_ear_L_2"].location" (important note: there can be three location channels: one for x, one for y, and one for z)
-				if ("[\"" + bone.name + "\"]") in channel.data_path and channelType in channel.data_path:
-					result.append(channel)
-	else: # variant 3: fcurves:[{data_path:"pose.bones[\"Bone1\"].location"}]
-		bone_label = '"%s"' % bone.name
-		for channel in action.fcurves:
-			data_path = channel.data_path
-			if bone_label in data_path and channelType in data_path:
-				result.append(channel)
-
-	vdebug.EndSection("a")
-
-	return result
-
-def GetKeyframeAt(channel, frame):
-	for keyframe in channel.keyframe_points:
-		if keyframe.co[0] == frame:
-			return keyframe
-	return null
-def IsKeyframeAt(channels, frame):
-	for channel in channels:
-		if not GetKeyframeAt(channel, frame) is null:
-			return true
-	return false
-
-def handle_position_channel(channel, frame, position):
-	change = false
-	if channel.array_index in [0, 1, 2]:
-		for keyframe in channel.keyframe_points:
-			if keyframe.co[0] == frame:
-				change = true
-		value = channel.evaluate(frame)
-		if channel.array_index == 0:
-			position.x = value
-		if channel.array_index == 1:
-			position.y = value
-		if channel.array_index == 2:
-			position.z = value
-	return change
-
-def position(bone, frame, action, armatureMatrix):
-	position = mathutils.Vector((0,0,0))
-	change = False
-	ngroups = len(action.groups)
-	if ngroups > 0:
-		index = 0
-		for i in range(ngroups):
-			if action.groups[i].name == bone.name:
-				index = i
-		for channel in action.groups[index].channels:
-			if "location" in channel.data_path:
-				hasChanged = handle_position_channel(channel, frame, position)
-				change = change or hasChanged
-	else:
-		bone_label = '"%s"' % bone.name
-		for channel in action.fcurves:
-			data_path = channel.data_path
-			if bone_label in data_path and "location" in data_path:
-				hasChanged = handle_position_channel(channel, frame, position)
-				change = change or hasChanged
-
-	position = position * bone.matrix_local.inverted()
-	if bone.parent == None:
-		position.x += bone.head.x
-		position.y += bone.head.y
-		position.z += bone.head.z
-	else:
-		parent = bone.parent
-		parentInvertedLocalMatrix = parent.matrix_local.inverted()
-		parentHeadTailDiff = parent.tail_local - parent.head_local
-		position.x += (bone.head * parentInvertedLocalMatrix).x + parentHeadTailDiff.x
-		position.y += (bone.head * parentInvertedLocalMatrix).y + parentHeadTailDiff.y
-		position.z += (bone.head * parentInvertedLocalMatrix).z + parentHeadTailDiff.z
-
-	return armatureMatrix * position, change
-
-def handle_rotation_channel(channel, frame, rotation):
-	change = false
-	if channel.array_index in [0, 1, 2, 3]:
-		for keyframe in channel.keyframe_points:
-			if keyframe.co[0] == frame:
-				change = true
-
-		value = channel.evaluate(frame)
-		if channel.array_index == 1:
-			rotation.x = value
-		elif channel.array_index == 2:
-			rotation.y = value
-		elif channel.array_index == 3:
-			rotation.z = value
-		elif channel.array_index == 0:
-			rotation.w = value
-
-	return change
-
-def rotation(bone, frame, action, armatureMatrix):
-	# TODO: calculate rotation also from rotation_euler channels
-	rotation = mathutils.Vector((0,0,0,1))
-	change = false
-	ngroups = len(action.groups)
-	if ngroups > 0: # animation grouped by bones
-		index = -1
-		for i in range(ngroups):
-			if action.groups[i].name == bone.name:
-				index = i
-		if index > -1:
-			for channel in action.groups[index].channels:
-				if "quaternion" in channel.data_path:
-					hasChanged = handle_rotation_channel(channel, frame, rotation)
-					change = change or hasChanged
-	else: # animation in raw fcurves
-		bone_label = '"%s"' % bone.name
-		for channel in action.fcurves:
-			data_path = channel.data_path
-			if bone_label in data_path and "quaternion" in data_path:
-				hasChanged = handle_rotation_channel(channel, frame, rotation)
-				change = change or hasChanged
-
-	rot3 = rotation.to_3d()
-	rotation.xyz = rot3 * bone.matrix_local.inverted()
-	rotation.xyz = armatureMatrix * rotation.xyz
-
-	return rotation, change

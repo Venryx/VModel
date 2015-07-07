@@ -51,9 +51,12 @@ def s(obj, numberTruncate = null):
 		if result == ".0" or result == "-.0":
 			result = "0"
 	elif type(obj) == Vector: #elif obj is Vector:
+		#result = "[" + s(vec[0]) + " " + s(vec[1]) + " " + s(vec[2]) + "]"
 		result = "[" + s(obj.x, numberTruncate) + " " + s(obj.y, numberTruncate) + " " + s(obj.z, numberTruncate) + "]"
 	elif type(obj) == Quaternion:
 		result = "[" + s(obj.x, numberTruncate) + " " + s(obj.y, numberTruncate) + " " + s(obj.z, numberTruncate) + " " + s(obj.w, numberTruncate) + "]"
+	#elif type(obj) == Color:
+	#	result = str(c) #"%d" % c
 	else:
 		result = str(obj)
 	
