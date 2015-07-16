@@ -1,5 +1,5 @@
-from io_scene_vmodel import *
-from io_scene_vmodel.vglobals import *
+from vmodel import *
+from vmodel.vglobals import *
 
 import re
 import math

@@ -1,5 +1,5 @@
-from io_scene_vmodel import *
-from io_scene_vmodel.vglobals import *
+from vmodel import *
+from vmodel.vglobals import *
 
 import bpy
 import mathutils
@@ -58,10 +58,10 @@ def GetObjectStr(obj, data, options):
 	rotationQ_degrees = v.Quaternion_toDegrees(rotationQ)
 	rotation = v.Vector_toDegrees(rotationQ_degrees.to_euler("XYZ")); #ZYX"))
 
-	object_string += "\nposition:" + s(position)
-	object_string += "\nrotation:" + (s(rotation) if options.rotationDataType == "Euler Angle" else s(rotationQ))
-	#object_string += "\nscale:" + s(scale)
-	object_string += "\nscale:" + s(scale) if options.writeDefaultValues or fabs(scale.x - 1) > .001 or fabs(scale.y - 1) > .001 or fabs(scale.z - 1) > .001 else ""
+	object_string += "\nposition:" + S(position)
+	object_string += "\nrotation:" + (S(rotation) if options.rotationDataType == "Euler Angle" else S(rotationQ))
+	#object_string += "\nscale:" + S(scale)
+	object_string += "\nscale:" + S(scale) if options.writeDefaultValues or fabs(scale.x - 1) > .001 or fabs(scale.y - 1) > .001 or fabs(scale.z - 1) > .001 else ""
 
 	if obj.type == "MESH":
 		vdebug.StartSection("Mesh")
@@ -89,6 +89,9 @@ def GetObjectStr(obj, data, options):
 		object_string += "\nanchorToTerrain:true"
 	if obj.VModel_anchorVertexesToTerrain:
 		object_string += "\nanchorVertexesToTerrain:true"
+	if obj.VModel_gateGrate:
+		#object_string += "\ngateGrate:true"
+		object_string += "\ngateGrate_openPosition:" + S((obj.VModel_gateGrate_openPosition_x, obj.VModel_gateGrate_openPosition_y, obj.VModel_gateGrate_openPosition_z))
 
 	children_string = "{^}"
 	for child in obj.children:
@@ -241,8 +244,8 @@ def GetVertexesStr(obj, mesh, vertices, options):
 	result = "[^]"
 	for vertexIndex, vertex in enumerate(vertices):
 		result += "\n{"
-		result += "position:" + s(vertex.co)
-		result += " normal:[" + s(vertex.normal[0]) + " " + s(vertex.normal[1]) + " " + s(vertex.normal[2]) + "]"
+		result += "position:" + S(vertex.co)
+		result += " normal:[" + S(vertex.normal[0]) + " " + S(vertex.normal[1]) + " " + S(vertex.normal[2]) + "]"
 
 		uvsStr = ""
 		if options.option_uv_coords and len(mesh.uv_textures) > 0 and (not mesh.uv_textures.active == null):
@@ -252,7 +255,7 @@ def GetVertexesStr(obj, mesh, vertices, options):
 					for faceVertexIndex, vertexIndex2 in enumerate(face.vertices):
 						if vertexIndex == vertexIndex2:
 							vec = layer.data[faceIndex].uv[faceVertexIndex]
-							result += " uv" + (s(layerIndex) if layerIndex > 0 else "") + "_face" + s(faceIndex) + ":[" + s(vec[0]) + " " + s(vec[1]) + "]" #s(posComp[0]) + " " + s(posComp[1]) + "]"
+							result += " uv" + (S(layerIndex) if layerIndex > 0 else "") + "_face" + S(faceIndex) + ":[" + S(vec[0]) + " " + S(vec[1]) + "]" #S(posComp[0]) + " " + S(posComp[1]) + "]"
 			'''
 
 			# this approach took .69 seconds
@@ -264,10 +267,10 @@ def GetVertexesStr(obj, mesh, vertices, options):
 						if not Any(layerFaceUVValues, lambda a:a["uvPoint"][0] == faceInfo["uvPoint"][0] and a["uvPoint"][1] == faceInfo["uvPoint"][1]):
 							layerFaceUVValues.append(faceInfo)
 					if len(layerFaceUVValues) == 1:
-						uvsStr += " uv" + (s(layerIndex + 1) if layerIndex > 0 else "") + ":[" + s(faceInfo["uvPoint"][0]) + " " + s(faceInfo["uvPoint"][1]) + "]"
+						uvsStr += " uv" + (S(layerIndex + 1) if layerIndex > 0 else "") + ":[" + S(faceInfo["uvPoint"][0]) + " " + S(faceInfo["uvPoint"][1]) + "]"
 					else:
 						for faceIndex, faceInfo in sorted(layerInfo.items()):
-							uvsStr += " uv" + (s(layerIndex + 1) if layerIndex > 0 else "") + "_face" + s(faceIndex) + ":[" + s(faceInfo["uvPoint"][0]) + " " + s(faceInfo["uvPoint"][1]) + "]"
+							uvsStr += " uv" + (S(layerIndex + 1) if layerIndex > 0 else "") + "_face" + S(faceIndex) + ":[" + S(faceInfo["uvPoint"][0]) + " " + S(faceInfo["uvPoint"][1]) + "]"
 		result += uvsStr
 
 		if obj.find_armature() != null:
@@ -286,7 +289,7 @@ def GetBoneWeightsStr(obj, mesh, vertex):
 	for group in vertex.groups: # a 'group' is basically a bone-weight assignment
 		index = group.group
 		if obj.vertex_groups[index].name in bone_names:
-			result += (" " if len(result) > 1 else "") + obj.vertex_groups[index].name + ":" + s(group.weight)
+			result += (" " if len(result) > 1 else "") + obj.vertex_groups[index].name + ":" + S(group.weight)
 	result += "}"
 
 	return result
@@ -320,7 +323,7 @@ def generate_vertex_colors(colors, options):
 	for key, index in sorted(colors.items(), key=operator.itemgetter(1)):
 		chunks.append(key)
 
-	return "[" + " ".join(s(c) for c in chunks) + "]"'''
+	return "[" + " ".join(S(c) for c in chunks) + "]"'''
 
 # faces
 # ==========
@@ -339,14 +342,14 @@ def GetFacesStr(obj, mesh):
 		'''if face.material_index == materialIndex or materialIndex == -1:
 			result += (" " if len(result) > 1 else "") + "[" #result += (" " if faceIndex != 0 else "") + "["
 			for vertexIndex, vertex in enumerate(face.vertices):
-				result += (" " if vertexIndex != 0 else "") + s(vertex)
+				result += (" " if vertexIndex != 0 else "") + S(vertex)
 			result += "]"'''
 
 		result += (" " if faceIndex != 0 else "") + "["
 		for vertexIndex, vertex in enumerate(face.vertices):
-			result += (" " if vertexIndex != 0 else "") + s(vertex)
+			result += (" " if vertexIndex != 0 else "") + S(vertex)
 		if face.material_index > 0:
-			result += " {material:" + s(face.material_index) + "}"
+			result += " {material:" + S(face.material_index) + "}"
 		result += "]"
 	result += "]"
 	return result
@@ -359,16 +362,22 @@ def GetMaterialsStr(obj, mesh):
 	for materialIndex, material in enumerate(obj.data.materials):
 		if not material.use_nodes:
 			raise Exception("Materials must have the \"Use Nodes\" setting enabled.")
+
 		matStr = "\n{" #diffuseColor:\"" + ColorToHexStr(material.diffuse_color) + "\""
 		if material.node_tree != null:
-			for node in material.node_tree.nodes: # note: the below makes a lot of assumptions about the nodes' configurations and applications
-				if node.name == "Diffuse BSDF": #type == "BSDF_DIFFUSE":
-					#matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.color) + "\""
-					matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.inputs[0].default_value) + "\"" # maybe todo: get this to show the gamma corrected value (as in UI) rather than the base
+			nodes = material.node_tree.nodes
+
+			for node in nodes: # note: the below makes a lot of assumptions about the nodes' configurations and applications
+				if node.name == "RGB":
+					matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.color) + "\""
+				elif node.name == "Diffuse BSDF": #type == "BSDF_DIFFUSE":
+					if not node.inputs[0].is_linked and not diffuseColorHasOwnNode: # if just raw diffuse (no from-other-node/link input), and if a separate RGB node was not found, then use the raw diffuse
+						#matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.color) + "\""
+						matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.inputs[0].default_value) + "\"" # maybe todo: get this to show the gamma corrected value (as in UI) rather than the base
 				elif node.name == "Transparent BSDF": #type == "BSDF_TRANSPARENT":
 					matStr += ("" if matStr.count(":") == 0 else " ") + "transparency:true"
 				elif node.name == "Mix Shader":
-					matStr += ("" if matStr.count(":") == 0 else " ") + "alpha:" + s(node.inputs[0].default_value)
+					matStr += ("" if matStr.count(":") == 0 else " ") + "alpha:" + S(node.inputs[0].default_value)
 				elif node.name == "Image Texture": #type == "TEX_IMAGE":
 					textureBaseName = re.sub("[.0-9]+$", "", node.image.name)
 					matStr += ("" if matStr.count(":") == 0 else " ") + "texture:\"" + textureBaseName + "\""
@@ -389,7 +398,7 @@ def ColorToHexStr(color):
 		# compensate for gamma-correction thing (full white was showing up as "cccccc" (204, 204, 204) before)
 		# see: http://blenderartists.org/forum/showthread.php?320221-Converting-HEX-colors-to-blender-RGB
 		colorComp *= 255 / 204
-		compStr = s(hex(int(colorComp * 255)))[2:]
+		compStr = S(hex(int(colorComp * 255)))[2:]
 		while len(compStr) < 2:
 			compStr = "0" + compStr
 		result += compStr
@@ -476,15 +485,15 @@ def GetBoneStr(obj, armature, bone, options):
 
 	#parentNameStr = ("\"" + obj.data.edit_bones[bone.name].parent.name + "\"") if obj.data.edit_bones[bone.name].parent != null else "null"
 	
-	positionStr = s(pos)
-	rotationStr = s(rotationEuler) if options.rotationDataType == "Euler Angle" else s(rotQ)
+	positionStr = S(pos)
+	rotationStr = S(rotationEuler) if options.rotationDataType == "Euler Angle" else S(rotQ)
 
 	childrenStr = ""
 	if len(obj.data.edit_bones[bone.name].children) > 0:
 		for childEditBone in obj.data.edit_bones[bone.name].children:
 			childrenStr += "\n" + v.indentLines(GetBoneStr(obj, armature, next(a for a in armature.bones if a.name == childEditBone.name), options))
 
-	result = bone.name + ":{position:" + positionStr + " rotation:" + rotationStr + (" scale:" + s(scl) if options.writeDefaultValues or fabs(scl.x - 1) > .001 or fabs(scl.y - 1) > .001 or fabs(scl.z - 1) > .001 else "") + (" children:{^}" if len(childrenStr) > 0 else "") + "}" + childrenStr
+	result = bone.name + ":{position:" + positionStr + " rotation:" + rotationStr + (" scale:" + S(scl) if options.writeDefaultValues or fabs(scl.x - 1) > .001 or fabs(scl.y - 1) > .001 or fabs(scl.z - 1) > .001 else "") + (" children:{^}" if len(childrenStr) > 0 else "") + "}" + childrenStr
 	#result = bone.name + ":{position:" + positionStr + " scale:" + scaleStr + (" children:{^}" if len(childrenStr) > 0 else "") + "}" + childrenStr
 
 	return result
@@ -656,8 +665,8 @@ def GetActionStr(obj, armature, action, options):
 				rchange = true
 				schange = true
 
-				rotStr = s(rotEuler) if options.rotationDataType == "Euler Angle" else s(rotQ)
-				scaleStr = s(scl) if options.writeDefaultValues or fabs(scl.x - 1) > .001 or fabs(scl.y - 1) > .001 or fabs(scl.z - 1) > .001 else null
+				rotStr = S(rotEuler) if options.rotationDataType == "Euler Angle" else S(rotQ)
+				scaleStr = S(scl) if options.writeDefaultValues or fabs(scl.x - 1) > .001 or fabs(scl.y - 1) > .001 or fabs(scl.z - 1) > .001 else null
 
 				vdebug.EndSection("4")
 				vdebug.StartSection()
@@ -665,13 +674,13 @@ def GetActionStr(obj, armature, action, options):
 				# start-frame and end-frame: need position, rotation, and scale attributes (required frames)
 				#if frame == firstFrame or frame == enderFrame - 1:
 				if frame == 0 or frame == enderFrame - 1:
-					keyframe = s(time) + ":{position:" + s(pos) + " rotation:" + rotStr + (" scale:" + scaleStr if scaleStr != null else "") + "}"
+					keyframe = S(time) + ":{position:" + S(pos) + " rotation:" + rotStr + (" scale:" + scaleStr if scaleStr != null else "") + "}"
 					keys[boneIndex].append(keyframe)
 				# middle-frame: needs only one of the attributes; can be an empty frame (optional frame)
 				elif pchange == True or rchange == true:
-					keyframe = s(time) + ':{'
+					keyframe = S(time) + ':{'
 					if pchange == true:
-						keyframe += "position:" + s(pos)
+						keyframe += "position:" + S(pos)
 					if rchange == true:
 						keyframe += " rotation:" + rotStr
 					if schange == true and scaleStr != null:
@@ -706,8 +715,8 @@ def GetActionStr(obj, armature, action, options):
 
 	animation_string = "{^}"
 	#animation_string += "\nname:" + action.name
-	animation_string += "\nfps:" + s(fps)
-	animation_string += "\nlength:" + s(length)
+	animation_string += "\nfps:" + S(fps)
+	animation_string += "\nlength:" + S(length)
 	animation_string += "\nboneKeyframes:" + boneKeyframesStr
 	animation_string = v.indentLines(animation_string, 1, false)
 

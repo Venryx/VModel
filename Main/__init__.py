@@ -1,14 +1,15 @@
 #__all__ = ["v", "vdebug", "vglobals", "export_vmodel"]
-import io_scene_vmodel.v
-import io_scene_vmodel.vdebug
-import io_scene_vmodel.vglobals
-import io_scene_vmodel.export_vmodel
+import vmodel.v
+import vmodel.vdebug
+import vmodel.vclassextensions
+import vmodel.vglobals
+import vmodel.vmodelexport
 
 # init
 # ==========
 
-from io_scene_vmodel import *
-from io_scene_vmodel.vglobals import *
+from vmodel import *
+from vmodel.vglobals import *
 
 from math import *
 #import math
@@ -30,92 +31,51 @@ import bpy
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 
-# ShowSpaceTaken operator
-# ==========
-
-BLOCK_SIZE = 4
-
-class ShowSpaceTakenOperator(bpy.types.Operator):
-	"""Visualizes the dimensions of the space taken by the selected object, in Biome Defense terrain blocks."""
-	bl_idname = "view3d.show_space_taken"
-	bl_label = "Show Space Taken"
-	@classmethod
-	def poll(cls, context): # is called to determine whether the operator can be invoked
-		return context.active_object is not None
-	def execute(self, context): # invokes the operator and returns a state
-		if "SpaceTaken" in bpy.data.objects:
-			#v.SaveSelection()
-			bpy.ops.view3d.hide_space_taken() #HideSpaceTakenOperator(null).execute()
-			#v.LoadSelection()
-
-		blocks = v.CreateObject_Empty("SpaceTaken")
-		#spaceTaken = bpy.context.scene.objects.active.GetBounds()
-		spaceTaken = Box.Null
-		#for obj in [a for a in bpy.data.objects if a.select][0].GetDescendents(): #bpy.data.objects
-		for obj in bpy.context.scene.objects.active.GetDescendents():
-			if obj.VModel_export:
-				spaceTaken = spaceTaken.Encapsulate(obj.GetBounds())
-
-		for obj in bpy.context.scene.objects:
-			obj.select = false
-
-		#Log("A:" + s(floor(spaceTaken.position.x) - (floor(spaceTaken.position.x) % BLOCK_SIZE)) + ";" + s(floor(spaceTaken.GetMax().x) - (floor(spaceTaken.GetMax().x) % BLOCK_SIZE)))
-		for x in range(floor(spaceTaken.position.x) - (floor(spaceTaken.position.x) % BLOCK_SIZE), (floor(spaceTaken.GetMax().x) - (floor(spaceTaken.GetMax().x) % BLOCK_SIZE)) + BLOCK_SIZE, BLOCK_SIZE):
-			for y in range(floor(spaceTaken.position.y) - (floor(spaceTaken.position.y) % BLOCK_SIZE), (floor(spaceTaken.GetMax().y) - (floor(spaceTaken.GetMax().y) % BLOCK_SIZE)) + BLOCK_SIZE, BLOCK_SIZE):
-				for z in range(floor(spaceTaken.position.z) - (floor(spaceTaken.position.z) % BLOCK_SIZE), (floor(spaceTaken.GetMax().z) - (floor(spaceTaken.GetMax().z) % BLOCK_SIZE)) + BLOCK_SIZE, BLOCK_SIZE):
-					#block = v.CreateObject_Cube("SpaceTaken", (x, y, z), (0, 0, 0, 1), (BLOCK_SIZE, BLOCK_SIZE, .1))
-					#block = v.CreateObject_Empty("Block", (x, y, z), (0, 0, 0, 1), (BLOCK_SIZE, BLOCK_SIZE, .1), "CUBE")
-					block = v.CreateObject_Empty("Block", Vector((x, y, z)) + (Vector((BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)) / 2), Vector((0, 0, 0, 1)), Vector((BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)) / 2, "CUBE")
-					block.select = true
-					block.parent = blocks
-		return {'FINISHED'}
-
-# HideSpaceTaken operator
-# ==========
-
-class HideSpaceTakenOperator(bpy.types.Operator):
-	bl_idname = "view3d.hide_space_taken"
-	bl_label = "Hide Space Taken"
-	@classmethod
-	def poll(cls, context):
-		return context.active_object is not None
-	def execute(self, context):
-		if "SpaceTaken" not in bpy.data.objects:
-			return {'FINISHED'}
-		blocks = bpy.data.objects["SpaceTaken"]
-		'''for ob in bpy.context.scene.objects:
-			ob.select = false
-		blocks.select = true
-		bpy.ops.object.delete()'''
-		v.DeleteObject(blocks)
-
-		return {'FINISHED'}
-
 # VModel object panel
 # ==========
 
+# general
 bpy.types.Object.VModel_export = bpy.props.BoolProperty(default = true)
+
+# vobject
 bpy.types.Object.VModel_anchorToTerrain = bpy.props.BoolProperty(default = false)
 bpy.types.Object.VModel_anchorVertexesToTerrain = bpy.props.BoolProperty(default = false)
+bpy.types.Object.VModel_gateGrate = bpy.props.BoolProperty(default = false)
+bpy.types.Object.VModel_gateGrate_openPosition_x = bpy.props.FloatProperty()
+bpy.types.Object.VModel_gateGrate_openPosition_y = bpy.props.FloatProperty()
+bpy.types.Object.VModel_gateGrate_openPosition_z = bpy.props.FloatProperty()
+
+# material
 bpy.types.Object.material_doubleSided = bpy.props.BoolProperty(default = false)
 bpy.types.Object.material_alphaMin_enabled = bpy.props.BoolProperty(default = false)
-bpy.types.Object.material_alphaMin = bpy.props.FloatProperty(description = "Minimum alpha required for a pixel/fragment to be rendered.", min = 0, max = 1, default = .5)
+bpy.types.Object.material_alphaMin = bpy.props.FloatProperty(min = 0, max = 1, default = .5)
 
 class OBJECT_PT_hello(bpy.types.Panel):
-	bl_label = "VModel"
+	bl_label = "VModel - Object"
 	bl_space_type = "PROPERTIES"
 	bl_region_type = "WINDOW"
-	bl_context = "object"
+	#bl_context = "object"
+	bl_context = "constraint" # this panel is rarely used, so we'll use it for our own stuff
 
+	'''@classmethod
+	def poll(clr, context):
+		return Active() is not null'''
 	def draw(self, context):
 		layout = self.layout
-		obj = context.object
+		#obj = context.object
+		obj = Active()
+		if obj is null:
+			return
 		
 		row = layout.row()
-		row.label(text="Selected object: " + obj.name)
+		row.label(text="General")
 
 		row = layout.row()
 		row.prop(obj, "VModel_export", text="Export object")
+
+		layout.separator()
+		row = layout.row()
+		row.label(text="VObject")
 
 		row = layout.row()
 		row.prop(obj, "VModel_anchorToTerrain", text="Anchor to terrain")
@@ -124,11 +84,17 @@ class OBJECT_PT_hello(bpy.types.Panel):
 		row.prop(obj, "VModel_anchorVertexesToTerrain", text="Anchor vertexes to terrain")
 
 		row = layout.row()
-		row.operator("view3d.show_space_taken", text="Show space taken")
-		row.operator("view3d.hide_space_taken", text="Hide space taken")
+		row.prop(obj, "VModel_gateGrate", text="Gate grate")
+		if obj.VModel_gateGrate:
+			row = layout.row()
+			row.label(text="Open position")
+			row.prop(obj, "VModel_gateGrate_openPosition_x", text="X")
+			row.prop(obj, "VModel_gateGrate_openPosition_y", text="Y")
+			row.prop(obj, "VModel_gateGrate_openPosition_z", text="Z")
 
+		layout.separator()
 		row = layout.row()
-		row.label(text="Material:")
+		row.label(text="Material")
 
 		row = layout.row()
 		row.prop(obj, "material_doubleSided", text="Double-sided")
@@ -136,7 +102,7 @@ class OBJECT_PT_hello(bpy.types.Panel):
 		row = layout.row()
 		row.prop(obj, "material_alphaMin_enabled", text="Alpha min")
 		if obj.material_alphaMin_enabled:
-			row.prop(obj, "material_alphaMin", text="")
+			row.prop(obj, "material_alphaMin", text="Minimum alpha required for a pixel/fragment to be rendered.")
 
 # VModel material panel
 # ==========
@@ -173,42 +139,16 @@ class MATERIAL_PT_hello(bpy.types.Panel):
 		#row = layout.row()
 		#row.prop(mat, "VModel_useVertexColors", text="Use vertex colors")
 
-# Exporter - settings
+# exporter - settings
 # ==========
 
-SETTINGS_FILE_EXPORT = "vmodel_settings_export.js"
-
-import os
 import json
-
-def file_exists(filename):
-	"""Return true if file exists and accessible for reading.
-
-	Should be safer than just testing for existence due to links and
-	permissions magic on Unix filesystems.
-
-	@rtype: boolean
-	"""
-
-	try:
-		f = open(filename, 'r')
-		f.close()
-		return True
-	except IOError:
-		return False
-
-def get_settings_fullpath():
-	return os.path.join(bpy.app.tempdir, SETTINGS_FILE_EXPORT)
-
 def save_settings_export(context, properties):
 	settings = {}
 	for name in dir(properties): #properties.__dict__.keys():
 		if name in properties:
-			#Log("propName:" + name)
 			settings[name] = properties[name]
-
 	context.scene["vModelExportSettings"] = json.dumps(settings)
-
 def restore_settings_export(context, properties, self):
 	settings = json.loads(context.scene["vModelExportSettings"]) if "vModelExportSettings" in context.scene else {}
 	for name in settings.keys():
@@ -267,10 +207,10 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 
 		filepath = self.filepath
 
-		import io_scene_vmodel.export_vmodel
+		import vmodel.vmodelexport
 		#global s_defaultNumberTruncate
 		vglobals.s_defaultNumberTruncate = self.maxDecimalPlaces
-		return io_scene_vmodel.export_vmodel.save(self, context, self.properties)
+		return vmodel.vmodelexport.save(self, context, self.properties)
 		vglobals.s_defaultNumberTruncate = -1
 
 	def draw(self, context):
@@ -357,8 +297,8 @@ if "bpy" in locals():
 		imp.reload(vdebug)
 	if "vglobals" in locals():
 		imp.reload(vglobals)
-	if "export_vmodel" in locals():
-		imp.reload(export_vmodel)
+	if "vmodelexport" in locals():
+		imp.reload(vmodelexport)
 
 def menu_func_export(self, context):
 	default_path = bpy.data.filepath.replace(".blend", ".vmodel")
@@ -367,17 +307,9 @@ def menu_func_export(self, context):
 def register():
 	bpy.utils.register_module(__name__)
 	bpy.types.INFO_MT_file_export.append(menu_func_export)
-
-	# operators
-	#bpy.utils.register_class(ShowSpaceTakenOperator)
-	#bpy.utils.register_class(HideSpaceTakenOperator)
 def unregister():
 	bpy.utils.unregister_module(__name__)
 	bpy.types.INFO_MT_file_export.remove(menu_func_export)
-
-	# operators
-	#bpy.utils.unregister_class(ShowSpaceTakenOperator)
-	#bpy.utils.unregister_class(HideSpaceTakenOperator)
 
 if __name__ == "__main__":
 	register()'''
@@ -399,10 +331,22 @@ def ReloadModules(): # doesn't reload itself (this root/init module), because th
 			Log("    Reloading submodule: " + m[len(module_name) +1:])
 			del sys.modules[m]
 
-	import io_scene_vmodel.v
-	import io_scene_vmodel.vdebug
-	import io_scene_vmodel.vglobals
-	import io_scene_vmodel.export_vmodel
+	import vmodel.v
+	import vmodel.vdebug
+	import vmodel.vclassextensions
+	import vmodel.vglobals
+	import vmodel.vmodelexport
+
+	# make modules available to console panels
+	# ==========
+
+	import bpy
+	bpy.VModel_VModel_Main = sys.modules[__name__] #["vmodel"]
+	bpy.VModel_V = v
+	bpy.VModel_VDebug = vdebug
+	bpy.VModel_VClassExtensions = vclassextensions
+	bpy.VModel_VGlobals = vglobals
+	bpy.VModel_VModelExport = vmodelexport
 
 def register():
 	bpy.utils.register_module(__name__)

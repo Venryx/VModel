@@ -1,9 +1,16 @@
-from io_scene_vmodel import *
-#from io_scene_vmodel.vglobals import *
+from vmodel import *
+'''moduleNamesToNiceNames = {"v": "V", "vdebug": "VDebug", "vglobals": "VGlobals", "vmodelexport": "VModelExport"}
+for name, niceName in enumerate(moduleNamesToNiceNames):
+	exec(niceName + " = " + name)'''
+moduleNiceNames = ["V", "VDebug", "VClassExtensions", "VGlobals", "VModel", "VModelExport"]
+for niceName in moduleNiceNames:
+	if niceName.lower() in locals() or niceName.lower() in globals():
+		exec(niceName + " = " + niceName.lower())
 
-import re
+import bpy
 import math
 from mathutils import *
+import re
 
 # snippets
 # ==========
@@ -17,6 +24,38 @@ null = None
 false = False
 true = True
 
+# Blender: general
+# ==========
+
+def Objects():
+	return bpy.data.objects
+def Obj(name):
+	for obj in bpy.data.objects:
+		if obj.name == name:
+			return obj
+	return null
+def Selected(includeActive = true):
+	result = bpy.context.selected_objects
+	if not includeActive:
+		result = [a for a in result if a != Active()]
+	return result
+def Active():
+	return bpy.context.scene.objects.active
+def SelectedVertexes():
+	return Active().Vertexes().Where("a.select")
+def SelectedVertex():
+	return SelectedVertexes()[0]
+def ActiveVertex():
+	return SelectedVertex()
+
+def SaveMesh():
+	oldMode = bpy.context.object.mode
+	bpy.ops.object.mode_set(mode = "OBJECT")
+	bpy.ops.object.mode_set(mode = oldMode)
+
+def Get3DCursorPosition():
+	return bpy.context.scene.cursor_location
+
 # general
 # ==========
 
@@ -24,7 +63,7 @@ def Log(message):
 	print(message)
 
 s_defaultNumberTruncate = -1
-def s(obj, numberTruncate = null):
+def S(obj, numberTruncate = null):
 	global s_defaultNumberTruncate
 	numberTruncate = numberTruncate if numberTruncate != null else s_defaultNumberTruncate
 	#if numberTruncate != -1:
@@ -51,10 +90,10 @@ def s(obj, numberTruncate = null):
 		if result == ".0" or result == "-.0":
 			result = "0"
 	elif type(obj) == Vector: #elif obj is Vector:
-		#result = "[" + s(vec[0]) + " " + s(vec[1]) + " " + s(vec[2]) + "]"
-		result = "[" + s(obj.x, numberTruncate) + " " + s(obj.y, numberTruncate) + " " + s(obj.z, numberTruncate) + "]"
+		#result = "[" + S(vec[0]) + " " + S(vec[1]) + " " + S(vec[2]) + "]"
+		result = "[" + S(obj.x, numberTruncate) + " " + S(obj.y, numberTruncate) + " " + S(obj.z, numberTruncate) + "]"
 	elif type(obj) == Quaternion:
-		result = "[" + s(obj.x, numberTruncate) + " " + s(obj.y, numberTruncate) + " " + s(obj.z, numberTruncate) + " " + s(obj.w, numberTruncate) + "]"
+		result = "[" + S(obj.x, numberTruncate) + " " + S(obj.y, numberTruncate) + " " + S(obj.z, numberTruncate) + " " + S(obj.w, numberTruncate) + "]"
 	#elif type(obj) == Color:
 	#	result = str(c) #"%d" % c
 	else:
@@ -62,7 +101,7 @@ def s(obj, numberTruncate = null):
 	
 	return result
 def st(obj, numberTruncate = null):
-	return s(obj, numberTruncate)
+	return S(obj, numberTruncate)
 
 # blender constants/shortcuts
 # ==========
@@ -86,90 +125,6 @@ if PostSceneLoad not in bpy.app.handlers.scene_update_post:
 
 def Any(collection, matchFunc):
 	return len(list(filter(matchFunc, collection))) > 0
-
-# class extensions
-# ==========
-
-def AddMethod(type, method):
-	type[method.__name__] = method
-	del(method)
-
-import bpy_types
-#bpy_types.Object.GetBounds = GetBounds()
-
-# Object
-# ----------
-
-def GetBounds(s):
-	'''result = Box(s.location, s.dimensions)
-	for child in s.children:
-		result = result.Encapsulate(child.GetBounds())
-	return result'''
-	result = Box.Null
-	for corner in s.bound_box:
-		result = result.Encapsulate(s.matrix_world * Vector(corner))
-	return result
-#AddMethod(bpy_types.Object, GetBounds)
-bpy_types.Object.GetBounds = GetBounds
-#del(GetBounds)
-
-def GetDescendents(s):
-	result = []
-	for child in s.children:
-		result.append(child)
-		result.extend(child.GetDescendents())
-	return result
-bpy_types.Object.GetDescendents = GetDescendents
-
-# Bone
-# ----------
-
-# fix the root-bone matrix, to use the more sensible resting position/orientation (where the rest rotation has the tail-end toward z+, rather than y+)
-#if s.parent is null:
-#	result = fixMatrixForRootBone(result)
-
-def Bone_GetMatrix_Object(s):
-	return s.matrix_local
-bpy_types.Bone.GetMatrix_Object = Bone_GetMatrix_Object
-
-def Bone_GetMatrix(s):
-	result = s.matrix_local # starts out including parent-matrix
-	if s.parent is not null:
-		result = s.parent.matrix_local.inverted() * result
-	return result
-bpy_types.Bone.GetMatrix = Bone_GetMatrix
-
-# PoseBone
-# ----------
-
-# note that, as per V heirarchy/parent-and-unit conceptualization standards, matrix_object does not include base-matrix_object (so it's not in object-space--at least not in-the-same-way/with-the-same-units as, say, vertexes are)
-def PoseBone_GetMatrix_Object(s, addBaseMatrixes = true):
-	baseBone = s.bone
-
-	result = s.matrix # starts out as: base-matrix_object + matrix_object(pose-matrix_object)
-	if not addBaseMatrixes:
-		result = baseBone.matrix_local.inverted() * result
-	#result = baseBone.matrix_local.inverted() * result
-	#if addBaseMatrixes:
-	#	result = export_vmodel.realBoneRestMatrixes[bone] * result
-	
-	return result
-bpy_types.PoseBone.GetMatrix_Object = PoseBone_GetMatrix_Object
-
-def PoseBone_GetMatrix(s, addBaseMatrixes = true):
-	baseBone = s.bone
-
-	result = s.matrix # starts out as: [parent-base-matrix_object + parent-matrix_object] + [base-matrix_object + matrix_object]
-	if s.parent is not null: # remove this part: [parent-base-matrix_object + parent-matrix_object]
-		result = s.parent.GetMatrix_Object().inverted() * result
-	if not addBaseMatrixes: # remove this part: base-matrix_object
-		result = baseBone.GetMatrix_Object().inverted() * s.matrix
-	#result = baseBone.GetMatrix_Object().inverted() * s.matrix
-	#if addBaseMatrixes:
-	#	result = export_vmodel.realBoneRestMatrixes[bone] * result
-
-	return result
-bpy_types.PoseBone.GetMatrix = PoseBone_GetMatrix
 
 # bounds class
 # ==========
