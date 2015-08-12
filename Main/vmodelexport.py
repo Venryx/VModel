@@ -91,7 +91,8 @@ def GetObjectStr(obj, data, options):
 		object_string += "\nanchorVertexesToTerrain:true"
 	if obj.VModel_gateGrate:
 		#object_string += "\ngateGrate:true"
-		object_string += "\ngateGrate_openPosition:" + S((obj.VModel_gateGrate_openPosition_x, obj.VModel_gateGrate_openPosition_y, obj.VModel_gateGrate_openPosition_z))
+		# todo: break point
+		object_string += "\ngateGrate_openPosition:" + S(Vector((obj.VModel_gateGrate_openPosition_x, obj.VModel_gateGrate_openPosition_y, obj.VModel_gateGrate_openPosition_z)))
 
 	children_string = "{^}"
 	for child in obj.children:
@@ -374,9 +375,10 @@ def GetMaterialsStr(obj, mesh):
 					if not node.inputs[0].is_linked and not diffuseColorHasOwnNode: # if just raw diffuse (no from-other-node/link input), and if a separate RGB node was not found, then use the raw diffuse
 						#matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.color) + "\""
 						matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.inputs[0].default_value) + "\"" # maybe todo: get this to show the gamma corrected value (as in UI) rather than the base
+						# todo: have the diffuseColor come from an "RGB" node (linked to "Mix Shader"), not the "default_value" prop of a "Diffuse BSDF" node
 				elif node.name == "Transparent BSDF": #type == "BSDF_TRANSPARENT":
 					matStr += ("" if matStr.count(":") == 0 else " ") + "transparency:true"
-				elif node.name == "Mix Shader":
+				elif node.name == "Mix Shader" and not node.inputs[0].is_linked:
 					matStr += ("" if matStr.count(":") == 0 else " ") + "alpha:" + S(node.inputs[0].default_value)
 				elif node.name == "Image Texture": #type == "TEX_IMAGE":
 					textureBaseName = re.sub("[.0-9]+$", "", node.image.name)
@@ -530,7 +532,8 @@ def GetBoneChannels(action, bone, channelType):
 	return result
 def GetKeyframeAt(channel, frame):
 	for keyframe in channel.keyframe_points:
-		if keyframe.co[0] == frame:
+		#if keyframe.co[0] == frame:
+		if round(keyframe.co[0]) == frame: # maybe temp; assume the user wants keyframes to always be seen as having integer x-axis points
 			return keyframe
 	return null
 def IsKeyframeAt(channels, frame):
@@ -565,8 +568,10 @@ def GetActionStr(obj, armature, action, options):
 	armature_matrix = obj.matrix_world #obj.matrix_local
 	fps = bpy.data.scenes[0].render.fps
 	#firstFrame = action.frame_range[0]
-	enderFrame = int(action.frame_range[1]) + 1
-	#enderFrame = int(action.frame_range[1]) # for looping animation, skip the last frame (since it's just a duplicate of the first)
+	#enderFrame = int(action.frame_range[1]) + 1
+	enderFrame = round(action.frame_range[1]) + 1
+	if options.skipLastKeyframe:
+		enderFrame -= 1 # skip the last frame (e.g. for some looping animations, where it's just a duplicate of the first)
 
 	bonePropertyChannelsSet = {}
 	for boneIndex, poseBone in enumerate(obj.pose.bones):
@@ -582,15 +587,15 @@ def GetActionStr(obj, armature, action, options):
 
 	keys = {}
 	#for frame in range(firstFrame, enderFrame): # process all frames
-	for frame in range(0, enderFrame): # process all frames
+	for frame in range(0, enderFrame): # process all frames # maybe temp; assume the user wants keyframes to always be seen as having integer x-axis points
 		vdebug.StartSection()
 		
 		# compute the time of the frame
-		'''if options.option_frame_index_as_time:
+		'''if options.useFrameIndexAsKey:
 			time = frame - firstFrame
 		else:
 			time = (frame - firstFrame) / fps'''
-		if options.option_frame_index_as_time:
+		if options.useFrameIndexAsKey:
 			time = frame
 		else:
 			time = frame / fps
@@ -631,9 +636,6 @@ def GetActionStr(obj, armature, action, options):
 			rotQ = poseBone.rotation_quaternion
 			scl = poseBone.scale'''
 
-			#pos, rotQ, scl = poseBone.matrix.decompose()
-			#__import__("code").interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
-
 			# for some reason, the "rest" or "base" rotation of a bone is [-.5 0 0 0] (relative to the world) (i.e. rotated forward 90 degrees--with the tail/tip/non-core-end having a higher y value)
 			# we're going to correct that, so that the stored rotation is the rotation to get from the world-rotation (identity/none/[0 0 0 1]) to the bone rotation
 			#rotQ = mathutils.Quaternion([.707107, .707107, 0, 0]).inverted() * rotQ # w, x, y, z
@@ -646,14 +648,9 @@ def GetActionStr(obj, armature, action, options):
 			rotEuler = v.Vector_toDegrees(rotQ_degrees.to_euler("XYZ"))
 
 			bonePropertyChannels = bonePropertyChannelsSet[poseBone.name]
-
-			#isKeyframe = IsKeyframeAt(channels_location[boneIndex], frame) or IsKeyframeAt(channels_rotation[boneIndex], frame) or IsKeyframeAt(channels_scale[boneIndex], frame)
-			isKeyframe = IsKeyframeAt(bonePropertyChannels["location"], frame) or IsKeyframeAt(bonePropertyChannels["rotation"], frame) or IsKeyframeAt(bonePropertyChannels["scale"], frame)
+			isKeyframe = IsKeyframeAt(bonePropertyChannels["location"], frame) or IsKeyframeAt(bonePropertyChannels["rotation"], frame) or IsKeyframeAt(bonePropertyChannels["scale"], frame) or frame == enderFrame - 1
 
 			vdebug.EndSection("3")
-
-			#__import__('code').interact(local={k: v for ns in (globals(), locals()) for k, v in ns.items()})
-			#isKeyframe = true
 
 			if isKeyframe:
 				vdebug.StartSection()
@@ -677,7 +674,7 @@ def GetActionStr(obj, armature, action, options):
 					keyframe = S(time) + ":{position:" + S(pos) + " rotation:" + rotStr + (" scale:" + scaleStr if scaleStr != null else "") + "}"
 					keys[boneIndex].append(keyframe)
 				# middle-frame: needs only one of the attributes; can be an empty frame (optional frame)
-				elif pchange == True or rchange == true:
+				elif pchange == true or rchange == true:
 					keyframe = S(time) + ':{'
 					if pchange == true:
 						keyframe += "position:" + S(pos)
@@ -704,7 +701,7 @@ def GetActionStr(obj, armature, action, options):
 		parents.append(parent)
 	boneKeyframesStr = "{^}\n" + v.indentLines("\n".join(parents))
 
-	'''if options.option_frame_index_as_time:
+	'''if options.useFrameIndexAsKey:
 		length = frame_length
 	else:
 		length = frame_length / fps'''

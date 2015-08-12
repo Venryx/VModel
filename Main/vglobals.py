@@ -89,7 +89,7 @@ def S(obj, numberTruncate = null):
 			result = "0"
 		if result == ".0" or result == "-.0":
 			result = "0"
-	elif type(obj) == Vector: #elif obj is Vector:
+	elif type(obj) == Vector: #elif obj is Vector: # maybe todo: have this work for tuples as well
 		#result = "[" + S(vec[0]) + " " + S(vec[1]) + " " + S(vec[2]) + "]"
 		result = "[" + S(obj.x, numberTruncate) + " " + S(obj.y, numberTruncate) + " " + S(obj.z, numberTruncate) + "]"
 	elif type(obj) == Quaternion:
@@ -102,6 +102,39 @@ def S(obj, numberTruncate = null):
 	return result
 def st(obj, numberTruncate = null):
 	return S(obj, numberTruncate)
+
+# VWrap
+# ==========
+
+'''import types
+class VMatrix():
+	def __init__(s, obj):
+		s.obj = obj
+	obj = null
+
+	# matrix
+	def Decompose(s):
+		result = s.obj.decompose()
+		rotQ = result[1]
+		#result[1] = Quaternion((rotQ[3], rotQ[0], rotQ[1], rotQ[2]))
+		#result = (result[0], Quaternion((rotQ[3], rotQ[0], rotQ[1], rotQ[2])), result[2]) # found out the problem never existed -_-
+		return result
+
+type_copy = type
+def W(obj):
+	#type = globals()["type"](obj)
+	type = type_copy(obj)
+	typeName = type.__name__
+
+	''#'#if type(obj) == list or type(obj) == bpy.types.bpy_prop_collection or type(obj) == List:
+	#if type == list or type == List or type == bpy_types.bpy_prop_collection:
+	#if type == list or type == List or obj.__getitem__("__iter__") != null:
+	#if type == list or type == List or hasattr(obj, "__iter__"):
+	if hasattr(obj, "__iter__"):
+		return List(obj)''#'
+
+	if type == Matrix:
+		return VMatrix(obj)'''
 
 # blender constants/shortcuts
 # ==========

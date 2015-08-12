@@ -187,7 +187,8 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 
 	option_animation_morph = BoolProperty(name = "Morph animation", description = "Export animation (morphs)", default = false)
 	option_animation_skeletal = BoolProperty(name = "Skeletal animation", description = "Export animation (skeletal)", default = true)
-	option_frame_index_as_time = BoolProperty(name = "Frame index as time", description = "Use (original) frame index as frame time", default = true)
+	useFrameIndexAsKey = BoolProperty(name = "Use frame index as key", description = "Use (original) frame index as keyframe's key", default = true)
+	skipLastKeyframe = BoolProperty(name = "Skip last keyframe", description = "(e.g. for some looping animations, where it's just a duplicate of the first)", default = true)
 
 	def invoke(self, context, event):
 		restore_settings_export(context, self.properties, self)
@@ -276,7 +277,9 @@ class ExportVModel(bpy.types.Operator, ExportHelper):
 		row = layout.row()
 		row.prop(self.properties, "option_animation_skeletal")
 		row = layout.row()
-		row.prop(self.properties, "option_frame_index_as_time")
+		row.prop(self.properties, "useFrameIndexAsKey")
+		row = layout.row()
+		row.prop(self.properties, "skipLastKeyframe")
 		layout.separator()
 
 		layout.separator()

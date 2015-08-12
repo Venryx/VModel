@@ -73,7 +73,7 @@ def PoseBone_GetMatrix(s, addBaseMatrixes = true):
 	if s.parent is not null: # remove this part: [parent-base-matrix_object + parent-matrix_object]
 		result = s.parent.GetMatrix_Object().inverted() * result
 	if not addBaseMatrixes: # remove this part: base-matrix_object
-		result = baseBone.GetMatrix_Object().inverted() * s.matrix
+		result = baseBone.GetMatrix_Object().inverted() * result
 	#result = baseBone.GetMatrix_Object().inverted() * s.matrix
 	#if addBaseMatrixes:
 	#	result = export_vmodel.realBoneRestMatrixes[bone] * result
