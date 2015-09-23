@@ -110,6 +110,9 @@ class OBJECT_PT_hello(bpy.types.Panel):
 VModel_material_types = [("Basic", "Basic", "Basic"), ("Phong", "Phong", "Phong"), ("Lambert", "Lambert", "Lambert")]
 bpy.types.Material.VModel_materialType = EnumProperty(name = "Material type", description = "Material type", items = VModel_material_types, default = "Lambert")
 
+bpy.types.Material.VModel_unlitShader = bpy.props.BoolProperty(default = false)
+bpy.types.Material.VModel_leafShader = bpy.props.BoolProperty(default = false)
+
 '''VModel_blending_types = [("NoBlending", "NoBlending", "NoBlending"), ("NormalBlending", "NormalBlending", "NormalBlending"),
 						("AdditiveBlending", "AdditiveBlending", "AdditiveBlending"), ("SubtractiveBlending", "SubtractiveBlending", "SubtractiveBlending"),
 						("MultiplyBlending", "MultiplyBlending", "MultiplyBlending"), ("AdditiveAlphaBlending", "AdditiveAlphaBlending", "AdditiveAlphaBlending")]
@@ -132,6 +135,12 @@ class MATERIAL_PT_hello(bpy.types.Panel):
 
 		row = layout.row()
 		row.prop(mat, "VModel_materialType", text="Material type")
+
+		row = layout.row()
+		row.prop(mat, "VModel_unlitShader", text="Unlit shader")
+
+		row = layout.row()
+		row.prop(mat, "VModel_leafShader", text="Leaf shader")
 
 		#row = layout.row()
 		#row.prop(mat, "VModel_blendingType", text="Blending type")

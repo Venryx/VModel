@@ -384,6 +384,12 @@ def GetMaterialsStr(obj, mesh):
 					textureBaseName = re.sub("[.0-9]+$", "", node.image.name)
 					matStr += ("" if matStr.count(":") == 0 else " ") + "texture:\"" + textureBaseName + "\""
 			result += matStr
+		if "VModel_unlitShader" in material and material.VModel_unlitShader:
+			result += " unlitShader:true"
+		#if "material_leafShader" in obj and obj.material_leafShader:
+		#	result += " leafShader:true"
+		if "VModel_leafShader" in material and material.VModel_leafShader:
+			result += " leafShader:true"
 		if "material_doubleSided" in obj and obj.material_doubleSided:
 			result += " doubleSided:true"
 		result += "}"
