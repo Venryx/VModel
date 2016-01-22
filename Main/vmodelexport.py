@@ -369,13 +369,19 @@ def GetMaterialsStr(obj, mesh):
 			nodes = material.node_tree.nodes
 
 			for node in nodes: # note: the below makes a lot of assumptions about the nodes' configurations and applications
-				if node.name == "RGB":
+			
+				# for diffuseColor
+				if node.name == "Mix" and not node.inputs[1].is_linked:
+					matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.inputs[1].default_value) + "\""
+				elif node.name == "RGB":
 					matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.color) + "\""
 				elif node.name == "Diffuse BSDF": #type == "BSDF_DIFFUSE":
-					if not node.inputs[0].is_linked and not diffuseColorHasOwnNode: # if just raw diffuse (no from-other-node/link input), and if a separate RGB node was not found, then use the raw diffuse
+					#if not node.inputs[0].is_linked and not diffuseColorHasOwnNode: # if just raw diffuse (no from-other-node/link input), and if a separate RGB node was not found, then use the raw diffuse
+					if not node.inputs[0].is_linked: # if just raw diffuse (no from-other-node/link input), then use the raw diffuse
 						#matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.color) + "\""
 						matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.inputs[0].default_value) + "\"" # maybe todo: get this to show the gamma corrected value (as in UI) rather than the base
-						# todo: have the diffuseColor come from an "RGB" node (linked to "Mix Shader"), not the "default_value" prop of a "Diffuse BSDF" node
+				
+				# for others
 				elif node.name == "Transparent BSDF": #type == "BSDF_TRANSPARENT":
 					matStr += ("" if matStr.count(":") == 0 else " ") + "transparency:true"
 				elif node.name == "Mix Shader" and not node.inputs[0].is_linked:
