@@ -3,6 +3,9 @@ Blender exporter for the vmodel file format.
 
 It's primary use at the moment is for allowing models to be exported from Blender into the Biome Defense game project at runtime. (project thread: http://forum.unity3d.com/threads/331411)
 
+Notes:
+* The Unity Importer hasn't been cleaned up for general use, yet--i.e. it has a lot of project-specific code, and code that needs to be cleaned/simplified. This will come eventually, by way of lazy updating (i.e. only updating when old code causes issues or development slowdowns), but I can speed this up some if there's outside use for the package.
+
 Here's an example of a vmodel file's contents:
 ```
 {^}
