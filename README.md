@@ -1,5 +1,5 @@
 # VModel
-Blender exporter for the vmodel file format.
+Blender exporter and Unity importer for the vmodel file format.
 
 It's primary use at the moment is for allowing models to be exported from Blender into the Biome Defense game at runtime. (project thread: http://forum.unity3d.com/threads/331411)
 
