@@ -120,7 +120,11 @@ def extract_mesh(obj, scene, options):
 	if obj.type == "MESH":
 		# collapse modifiers into mesh
 		#mesh = obj.to_mesh(scene, True, "RENDER")
-		mesh = obj.to_mesh(scene, false, "RENDER") # maybe todo: have it apply all modifiers other than the Armature ones
+		#mesh = obj.to_mesh(scene, false, "RENDER")
+
+		# only apply modifiers for mesh-retrieval if there are no Armature modifiers in the list
+		mesh = obj.to_mesh(scene, len([a for a in obj.modifiers if type(a) == bpy.types.ArmatureModifier]) == 0, "RENDER")
+
 		if not mesh:
 			raise Exception("Error, could not get mesh data from object [%s]" % obj.name)
 
@@ -225,7 +229,7 @@ def GetVertexesStr(obj, mesh, vertices, options):
 		return ""
 
 	vertexInfoByVertexThenLayerThenFace = {}
-	for faceIndex, face in enumerate(v.get_faces(mesh)):
+	for faceIndex, face in enumerate(mesh.GetFaces()):
 		for layerIndex, layer in enumerate(mesh.tessface_uv_textures): # for now, we assume there's only one
 			for faceVertexIndex, vertexIndex in enumerate(face.vertices):
 				if vertexIndex not in vertexInfoByVertexThenLayerThenFace:
@@ -331,7 +335,7 @@ def generate_vertex_colors(colors, options):
 
 def GetFacesStr(obj, mesh):
 	result = "["
-	for faceIndex, face in enumerate(v.get_faces(mesh)):
+	for faceIndex, face in enumerate(mesh.GetFaces()):
 		'''bpy.ops.object.mode_set(mode = "EDIT") # go to edit mode to create bmesh
 		bm = bmesh.from_edit_mesh(obj.data) # create bmesh object from object mesh
 		#bmFace = bm.faces[faceIndex]

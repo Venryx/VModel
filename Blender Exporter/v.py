@@ -58,12 +58,6 @@ def veckey3d(v):
 def veckey2d(v):
 	return round(v[0], 6), round(v[1], 6)
 
-def get_faces(obj):
-	if hasattr(obj, "tessfaces"):
-		return obj.tessfaces
-	else:
-		return obj.faces
-
 def get_normal_indices(v, normals, mesh):
 	n = []
 	mv = mesh.vertices

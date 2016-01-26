@@ -68,6 +68,12 @@ class OBJECT_PT_hello(bpy.types.Panel):
 			return
 		
 		row = layout.row()
+		tempMesh = obj.to_mesh(bpy.context.screen.scene, true, "RENDER")
+		#row.label(text="Info) V:" + S(len(obj.data.vertices)) + " F:" + S(len(obj.data.polygons)))
+		row.label(text="Info) V:" + S(len(obj.data.vertices)) + " F:" + S(len(obj.data.polygons)) + " (" + S(len(tempMesh.GetFaces())) + ")")
+		bpy.data.meshes.remove(tempMesh)
+
+		row = layout.row()
 		row.label(text="General")
 
 		row = layout.row()

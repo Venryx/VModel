@@ -31,6 +31,16 @@ def GetDescendents(s):
 	return result
 bpy_types.Object.GetDescendents = GetDescendents
 
+# Mesh
+# ==========
+
+def Mesh_GetFaces(s):
+	if hasattr(s, "tessfaces"):
+		return s.tessfaces
+	else:
+		return s.faces
+bpy_types.Mesh.GetFaces = Mesh_GetFaces
+
 # Bone
 # ==========
 
