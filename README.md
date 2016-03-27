@@ -5,6 +5,7 @@ It's primary use at the moment is for allowing models to be exported from Blende
 
 Notes:
 * The Unity Importer hasn't been cleaned up for general use, yet (i.e. it has a lot of project-specific code, and code that needs to be cleaned/simplified). This will come eventually, by way of lazy updating (i.e. only updating when old code causes issues or development slowdowns), but I can speed this up some if there's outside use for the package; at the moment, I'm only updating the importer portion of the repo occasionally, as it requires copying from my main game project.
+* The Unity Importer makes use of the VDF Serializer library. While a copy is included in this repo (or will be, anyway), you may want to get the latest version here: http://github.com/Venryx/VDF
 
 Here's an example of a vmodel file's contents:
 ```
