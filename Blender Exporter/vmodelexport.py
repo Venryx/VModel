@@ -130,7 +130,7 @@ def extract_mesh(obj, scene, options):
 
 		# preserve original name
 		mesh.name = obj.name
-	
+
 		mesh.update(calc_tessface=True)
 
 		mesh.calc_normals()
@@ -177,7 +177,7 @@ def GetMeshStr(obj, scene, options):
 
 	vertices = []
 	vertices.extend(mesh.vertices[:])
-	
+
 	if options.align_model == 1:
 		v.center(vertices)
 	elif options.align_model == 2:
@@ -280,7 +280,7 @@ def GetVertexesStr(obj, mesh, vertices, options):
 
 		if obj.find_armature() != null:
 			result += " boneWeights:" + GetBoneWeightsStr(obj, mesh, vertex)
-			
+
 		result += "}"
 
 	result = v.indentLines(result, 1, false)
@@ -373,7 +373,7 @@ def GetMaterialsStr(obj, mesh):
 			nodes = material.node_tree.nodes
 
 			for node in nodes: # note: the below makes a lot of assumptions about the nodes' configurations and applications
-			
+
 				# for diffuseColor
 				if node.name == "Mix" and not node.inputs[1].is_linked:
 					matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.inputs[1].default_value) + "\""
@@ -384,7 +384,7 @@ def GetMaterialsStr(obj, mesh):
 					if not node.inputs[0].is_linked: # if just raw diffuse (no from-other-node/link input), then use the raw diffuse
 						#matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.color) + "\""
 						matStr += ("" if matStr.count(":") == 0 else " ") + "diffuseColor:\"" + ColorToHexStr(node.inputs[0].default_value) + "\"" # maybe todo: get this to show the gamma corrected value (as in UI) rather than the base
-				
+
 				# for others
 				elif node.name == "Transparent BSDF": #type == "BSDF_TRANSPARENT":
 					matStr += ("" if matStr.count(":") == 0 else " ") + "transparency:true"
@@ -394,14 +394,8 @@ def GetMaterialsStr(obj, mesh):
 					textureBaseName = re.sub("[.0-9]+$", "", node.image.name)
 					matStr += ("" if matStr.count(":") == 0 else " ") + "texture:\"" + textureBaseName + "\""
 			result += matStr
-		if "VModel_unlitShader" in material and material.VModel_unlitShader:
-			result += " unlitShader:true"
-		#if "material_leafShader" in obj and obj.material_leafShader:
-		#	result += " leafShader:true"
-		if "VModel_leafShader" in material and material.VModel_leafShader:
-			result += " leafShader:true"
-		if "material_doubleSided" in obj and obj.material_doubleSided:
-			result += " doubleSided:true"
+		if "VModel_shader" in material and material.VModel_shader != "Dissolve":
+			result += " shader:\"" + material.VModel_shader + "\""
 		result += "}"
 
 	result = v.indentLines(result, 1, false)
@@ -502,7 +496,7 @@ def GetBoneStr(obj, armature, bone, options):
 	rotationEuler = v.Vector_toDegrees(rotQ_degrees.to_euler("XYZ"))
 
 	#parentNameStr = ("\"" + obj.data.edit_bones[bone.name].parent.name + "\"") if obj.data.edit_bones[bone.name].parent != null else "null"
-	
+
 	positionStr = S(pos)
 	rotationStr = S(rotationEuler) if options.rotationDataType == "Euler Angle" else S(rotQ)
 
@@ -605,7 +599,7 @@ def GetActionStr(obj, armature, action, options):
 	#for frame in range(firstFrame, enderFrame): # process all frames
 	for frame in range(0, enderFrame): # process all frames # maybe temp; assume the user wants keyframes to always be seen as having integer x-axis points
 		vdebug.StartSection()
-		
+
 		# compute the time of the frame
 		'''if options.useFrameIndexAsKey:
 			time = frame - firstFrame
@@ -743,7 +737,7 @@ def GetActionStr(obj, armature, action, options):
 	bpy.context.area.type = oldContext
 	bpy.ops.object.mode_set(mode = oldMode)
 	bpy.context.scene.objects.active = oldActiveObject
-	
+
 	vdebug.EndSection("7")
 
 	return animation_string

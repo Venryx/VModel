@@ -46,9 +46,9 @@ bpy.types.Object.VModel_gateGrate_openPosition_y = bpy.props.FloatProperty()
 bpy.types.Object.VModel_gateGrate_openPosition_z = bpy.props.FloatProperty()
 
 # material
-bpy.types.Object.material_doubleSided = bpy.props.BoolProperty(default = false)
+'''bpy.types.Object.material_doubleSided = bpy.props.BoolProperty(default = false)
 bpy.types.Object.material_alphaMin_enabled = bpy.props.BoolProperty(default = false)
-bpy.types.Object.material_alphaMin = bpy.props.FloatProperty(min = 0, max = 1, default = .5)
+bpy.types.Object.material_alphaMin = bpy.props.FloatProperty(min = 0, max = 1, default = .5)'''
 
 class OBJECT_PT_hello(bpy.types.Panel):
 	bl_label = "VModel - Object"
@@ -66,8 +66,8 @@ class OBJECT_PT_hello(bpy.types.Panel):
 		obj = Active()
 		if obj is null:
 			return
-		
-		if obj.data:
+
+		if obj.data and type(Active().data) is bpy.types.Mesh:
 			row = layout.row()
 			tempMesh = obj.to_mesh(bpy.context.screen.scene, true, "RENDER")
 			#row.label(text="Info) V:" + S(len(obj.data.vertices)) + " F:" + S(len(obj.data.polygons)))
@@ -99,7 +99,7 @@ class OBJECT_PT_hello(bpy.types.Panel):
 			row.prop(obj, "VModel_gateGrate_openPosition_y", text="Y")
 			row.prop(obj, "VModel_gateGrate_openPosition_z", text="Z")
 
-		layout.separator()
+		'''layout.separator()
 		row = layout.row()
 		row.label(text="Material")
 
@@ -109,7 +109,7 @@ class OBJECT_PT_hello(bpy.types.Panel):
 		row = layout.row()
 		row.prop(obj, "material_alphaMin_enabled", text="Alpha min")
 		if obj.material_alphaMin_enabled:
-			row.prop(obj, "material_alphaMin", text="Minimum alpha required for a pixel/fragment to be rendered.")
+			row.prop(obj, "material_alphaMin", text="Minimum alpha required for a pixel/fragment to be rendered.")'''
 
 # VModel material panel
 # ==========
@@ -117,8 +117,11 @@ class OBJECT_PT_hello(bpy.types.Panel):
 VModel_material_types = [("Basic", "Basic", "Basic"), ("Phong", "Phong", "Phong"), ("Lambert", "Lambert", "Lambert")]
 bpy.types.Material.VModel_materialType = EnumProperty(name = "Material type", description = "Material type", items = VModel_material_types, default = "Lambert")
 
-bpy.types.Material.VModel_unlitShader = bpy.props.BoolProperty(default = false)
-bpy.types.Material.VModel_leafShader = bpy.props.BoolProperty(default = false)
+VModel_shaders = [("Unlit", "Unlit", "Unlit"), ("Leaf", "Leaf", "Leaf"), ("Standard", "Standard", "Standard"), ("Standard_DoubleSided", "Standard_DoubleSided", "Standard_DoubleSided"), ("Dissolve", "Dissolve", "Dissolve")]
+bpy.types.Material.VModel_shader = EnumProperty(name = "Shader", description = "Shader", items = VModel_shaders, default = "Dissolve")
+
+bpy.types.Material.VModel_alphaMin_enabled = bpy.props.BoolProperty(default = false)
+bpy.types.Material.VModel_alphaMin = bpy.props.FloatProperty(min = 0, max = 1, default = .5)
 
 '''VModel_blending_types = [("NoBlending", "NoBlending", "NoBlending"), ("NormalBlending", "NormalBlending", "NormalBlending"),
 						("AdditiveBlending", "AdditiveBlending", "AdditiveBlending"), ("SubtractiveBlending", "SubtractiveBlending", "SubtractiveBlending"),
@@ -133,21 +136,23 @@ class MATERIAL_PT_hello(bpy.types.Panel):
 	bl_region_type = "WINDOW"
 	bl_context = "material"
 
-	def draw(self, context):
-		layout = self.layout
+	def draw(s, context):
+		layout = s.layout
 		mat = context.material
 
 		row = layout.row()
 		row.label(text="Selected material: " + mat.name)
 
-		row = layout.row()
-		row.prop(mat, "VModel_materialType", text="Material type")
+		'''row = layout.row()
+		row.prop(mat, "VModel_materialType", text="Material type")'''
 
 		row = layout.row()
-		row.prop(mat, "VModel_unlitShader", text="Unlit shader")
+		row.prop(mat, "VModel_shader", text="Shader")
 
 		row = layout.row()
-		row.prop(mat, "VModel_leafShader", text="Leaf shader")
+		row.prop(mat, "VModel_alphaMin_enabled", text="Alpha min")
+		if mat.VModel_alphaMin_enabled:
+			row.prop(mat, "VModel_alphaMin", text="Minimum alpha required for a pixel/fragment to be rendered.")
 
 		#row = layout.row()
 		#row.prop(mat, "VModel_blendingType", text="Blending type")
