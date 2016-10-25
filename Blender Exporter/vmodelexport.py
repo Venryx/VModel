@@ -187,8 +187,9 @@ def GetMeshStr(obj, scene, options):
 
 	model_string = "{^}"
 	model_string += "\nvertices:" + GetVertexesStr(obj, mesh, vertices, options)
-	model_string += "\nfaces:" + GetFacesStr(obj, mesh)
-	model_string += "\nmaterials:" + GetMaterialsStr(obj, mesh)
+	finalMaterials = GetFinalMaterials(obj, mesh)
+	model_string += "\nfaces:" + GetFacesStr(obj, mesh, finalMaterials)
+	model_string += "\nmaterials:" + GetMaterialsStr(finalMaterials)
 
 	'''morphTargets_string = ""
 	nmorphTarget = 0
@@ -333,7 +334,7 @@ def generate_vertex_colors(colors, options):
 # faces
 # ==========
 
-def GetFacesStr(obj, mesh):
+def GetFacesStr(obj, mesh, finalMaterials):
 	result = "["
 	for faceIndex, face in enumerate(mesh.GetFaces()):
 		'''bpy.ops.object.mode_set(mode = "EDIT") # go to edit mode to create bmesh
@@ -353,8 +354,12 @@ def GetFacesStr(obj, mesh):
 		result += (" " if faceIndex != 0 else "") + "["
 		for vertexIndex, vertex in enumerate(face.vertices):
 			result += (" " if vertexIndex != 0 else "") + S(vertex)
-		if face.material_index > 0:
-			result += " {material:" + S(face.material_index) + "}"
+
+		mat = obj.data.materials[face.material_index];
+		finalMaterialIndex = finalMaterials.index(mat)
+		if finalMaterialIndex > 0:
+			result += " {material:" + S(finalMaterialIndex) + "}"
+
 		result += "]"
 	result += "]"
 	return result
@@ -362,9 +367,21 @@ def GetFacesStr(obj, mesh):
 # materials
 # ==========
 
-def GetMaterialsStr(obj, mesh):
-	result = "[^]"
+def GetFinalMaterials(obj, mesh):
+	result = []
 	for materialIndex, material in enumerate(obj.data.materials):
+		isUsed = false
+		for faceIndex, face in enumerate(mesh.GetFaces()):
+			if face.material_index == materialIndex:
+				isUsed = true
+				break
+		if isUsed:
+			result.append(material)
+	return result
+
+def GetMaterialsStr(materials):
+	result = "[^]"
+	for materialIndex, material in enumerate(materials):
 		if not material.use_nodes:
 			raise Exception("Materials must have the \"Use Nodes\" setting enabled.")
 
